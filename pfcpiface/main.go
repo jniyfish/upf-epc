@@ -40,6 +40,16 @@ type Conf struct {
 	NotifySockAddr    string      `json:"notify_sockaddr"`
 	EndMarkerSockAddr string      `json:"endmarker_sockaddr"`
 	LogLevel          string      `json:"log_level"`
+	QciQosConfig      []QciQosConfig `json:"qci_qos_config"`
+}
+
+// QciQosConfig : Qos configured attributes
+type QciQosConfig struct {
+	QCI                uint8  `json:"qci"`
+	CBS                uint32 `json:"cbs"`
+	PBS                uint32 `json:"pbs"`
+	EBS                uint32 `json:"ebs"`
+	SchedulingPriority uint32 `json:"priority"`
 }
 
 // SimModeInfo : Sim mode attributes.
