@@ -194,13 +194,13 @@ void Qos::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
           uint8_t *data = pkt->head_data<uint8_t *>() + value_off;
 
           if (value_attr_id < 0) { /* if it is offset-based */
-            memcpy(data, reinterpret_cast<uint8_t *>(val[init]) + value_pos,
+            memcpy(data, reinterpret_cast<uint8_t *>(&(val[init]->Data)) + value_pos,
                    value_size);
           } else { /* if it is attribute-based */
             typedef struct {
               uint8_t bytes[bess::metadata::kMetadataAttrMaxSize];
             } value_t;
-            uint8_t *buf = (uint8_t *)(val[init]) + value_pos;
+            uint8_t *buf = (uint8_t *)(&(val[init]->Data)) + value_pos;
 
             DLOG(INFO) << "Setting value " << std::hex
                        << *(reinterpret_cast<uint64_t *>(buf))

@@ -25,7 +25,7 @@ S:3 -> Sink()
 S:4 -> Sink()
 
 Metering.add(fields=[{'value_int':aton(6)}, {'value_int':aton(5)}],
-             gate=0,values=[{'value_int':3},{'value_int':300000},{'value_int':900000},
-                            {'value_int':2048},{'value_int':2048},
-                            {'value_int':2048}, {'value_int':2}])
+             gate=0,values=[{'value_int':3},{'value_int':aton(300000)},{'value_int':aton(900000)},
+                            {'value_int':aton(2048)},{'value_int':aton(2048)},
+                            {'value_int':aton(2048)}, {'value_int':aton(2)}])
 Metering.set_default_gate(gate=1)
