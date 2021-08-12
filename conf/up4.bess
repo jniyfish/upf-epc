@@ -27,7 +27,12 @@ farBufferAction = 3
 farNotifyCPAction = 4
 pdrFailGate = 2
 farFailGate = 2
-qerFailGate = 1
+qerFailGate = 4
+qerGreenGate = 1
+qerYellowGate = 2
+qerRedGate = 3
+qerConfigDropGate = 5
+qerUnmeteredGate = 6
 interfaces = ["access", "core"]
 parser = Parser('conf/upf.json')
 parser.parse(interfaces)
@@ -230,6 +235,10 @@ executeFAR:farNotifyCPAction -> pfcpDetails::GenericEncap(fields=[ {'size': 8, '
                              -> farNotifyCP::PortOut(port='notifyCP')
 # Drop unknown packets
 pktParse:0 -> badPkts::Sink()
+qerLookup:qerGreenGate -> farLookup
+qerLookup:qerYellowGate -> farLookup
+qerLookup:qerRedGate -> qerMeterRed::Sink()
+qerLookup:qerConfigDropGate -> qerConfigDrop::Sink()
 pdrLookup:pdrFailGate -> pdrLookupFail::Sink()
 farLookup:farFailGate -> farLookupFail::Sink()
 qerLookup:qerFailGate -> qerLookupFail::Sink()

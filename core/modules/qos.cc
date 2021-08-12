@@ -98,7 +98,7 @@ CommandResponse Qos::Init(const bess::pb::QosArg &arg) {
 
     size_acc += f.size;
   }
-  default_gate_ = DROP_GATE;
+  default_gate_ = LOOKUP_FAIL_GATE;
   total_key_size_ = align_ceil(size_acc, sizeof(uint64_t));
   for (int i = 0; i < arg.values_size(); i++) {
     const auto &field = arg.values(i);
@@ -172,20 +172,42 @@ void Qos::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
   for (int init = 0; init < cnt; init++) {
     if ((hit_mask & (1ULL << init)) == 0) {
       EmitPacket(ctx, batch->pkts()[init], default_gate);
+      //std::cout << "qer default gate " << default_gate << std::endl;
       continue;
     }
 
     /* if lookup was successful, then set values (if possible) */
     if (hit_mask & (1 << init)) {
-      uint64_t time = rte_rdtsc();
-      uint8_t color = rte_meter_srtcm_color_blind_check(
-          &val[init]->m, &val[init]->p, time, batch->pkts()[init]->total_len());
 
-      if (color != RTE_COLOR_GREEN)
-        EmitPacket(ctx, batch->pkts()[init], default_gate);
-      else {
+      //std::cout << "qer gate " << val[init]->ogate << std::endl;
+      if ((val[init]->ogate == CONFIG_DROP_GATE) || 
+            (val[init]->ogate == METER_GREEN_GATE) ||
+            (val[init]->ogate == METER_YELLOW_GATE) ||
+            (val[init]->ogate == METER_RED_GATE)) {
+        //std::cout << "qer drop " << val[init]->ogate << std::endl;
+        EmitPacket(ctx, batch->pkts()[init], CONFIG_DROP_GATE);
+      } else if (val[init]->ogate == UNMETERED_GATE) {
+        //std::cout << "qer unmeter " << val[init]->ogate << std::endl;
+        EmitPacket(ctx, batch->pkts()[init], UNMETERED_GATE);
+      } else if (val[init]->ogate == METER_GATE) {
+        //std::cout << "qer meter before" << val[init]->ogate << std::endl;
+        uint64_t time = rte_rdtsc();
+        uint16_t ogate = CONFIG_DROP_GATE;
+        uint8_t color = rte_meter_trtcm_color_blind_check(
+                               &val[init]->m, &val[init]->p,
+                               time, batch->pkts()[init]->total_len());
+
+        //std::cout << "color : " << color << std::endl;
         pkt = batch->pkts()[0 + init];
         size_t num_values_ = values_.size();
+        if (color == RTE_COLOR_GREEN) {
+            ogate = METER_GREEN_GATE;
+        } else if (color == RTE_COLOR_YELLOW) {
+            ogate = METER_YELLOW_GATE;
+        } else if (color == RTE_COLOR_RED) {
+            ogate = METER_RED_GATE;
+        }
+        //std::cout << "qer meter after" << val[init]->ogate << std::endl;
         for (size_t i = 0; i < num_values_; i++) {
           int value_size = values_[i].size;
           int value_pos = values_[i].pos;
@@ -232,7 +254,8 @@ void Qos::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
             }
           }
         }
-        EmitPacket(ctx, batch->pkts()[init], val[init]->ogate);
+        //std::cout << "qer meter emit " << ogate << std::endl;
+        EmitPacket(ctx, batch->pkts()[init], ogate);
       }
     }
   }
@@ -372,17 +395,17 @@ CommandResponse Qos::CommandAdd(const bess::pb::QosCommandAddArg &arg) {
   v.cbs = arg.cbs(); 
   v.pbs=  arg.pbs();
   v.ebs=  arg.ebs();
-  struct rte_meter_srtcm_params app_srtcm_params = {
-      .cir = v.cir, .cbs = v.cbs, .ebs = v.ebs};
+  struct rte_meter_trtcm_params app_trtcm_params = {
+      .cir = v.cir, .pir = v.pir, .cbs = v.cbs, .pbs = v.pbs};
 
-  int ret = rte_meter_srtcm_profile_config(&v.p, &app_srtcm_params);
+  int ret = rte_meter_trtcm_profile_config(&v.p, &app_trtcm_params);
   if (ret)
     return CommandFailure(
-        ret, "Insert Failed - rte_meter_srtcm_profile_config failed");
+        ret, "Insert Failed - rte_meter_trtcm_profile_config failed");
 
-  ret = rte_meter_srtcm_config(&v.m, &v.p);
+  ret = rte_meter_trtcm_config(&v.m, &v.p);
   if (ret) {
-    return CommandFailure(ret, "Insert Failed - rte_meter_srtcm_config failed");
+    return CommandFailure(ret, "Insert Failed - rte_meter_trtcm_config failed");
   }
   table_.Add(v, key);
   return CommandSuccess();

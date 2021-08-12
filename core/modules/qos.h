@@ -47,6 +47,14 @@ static_assert(MAX_FIELD_SIZE <= sizeof(uint64_t),
               "field cannot be larger than 8 bytes");
 
 #define HASH_KEY_SIZE (MAX_FIELDS * MAX_FIELD_SIZE)
+#define METER_GATE 0
+#define METER_GREEN_GATE 1
+#define METER_YELLOW_GATE 2
+#define METER_RED_GATE 3
+#define LOOKUP_FAIL_GATE 4
+#define CONFIG_DROP_GATE 5
+#define UNMETERED_GATE 6
+
 
 #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
 #error this code assumes little endian architecture (x86)
@@ -61,8 +69,8 @@ struct value {
   uint64_t cbs;
   uint64_t pbs;
   uint64_t ebs;
-  struct rte_meter_srtcm_profile p;
-  struct rte_meter_srtcm m;
+  struct rte_meter_trtcm_profile p;
+  struct rte_meter_trtcm m;
   MeteringKey Data;
 } __attribute__((packed));
 
