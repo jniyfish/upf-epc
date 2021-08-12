@@ -690,7 +690,7 @@ func (b *bess) processQER(ctx context.Context, any *anypb.Any, method upfMsgType
 
 	methods := [...]string{"add", "add", "delete", "clear"}
 
-	_, err := b.client.ModuleCommand(ctx, &pb.CommandRequest{
+	val, err := b.client.ModuleCommand(ctx, &pb.CommandRequest{
 		Name: "qerLookup",
 		Cmd:  methods[method],
 		Arg:  any,
@@ -754,7 +754,7 @@ func (b *bess) addQER(ctx context.Context, done chan<- bool, qer qer) {
 				log.Println("Error marshalling the rule", q, err)
 				return
 			}
-			b.processQER(ctx, any, "add")
+			b.processQER(ctx, any, upfMsgTypeAdd)
 		}
 
 		if qer.dlMbr != 0 {
@@ -791,7 +791,7 @@ func (b *bess) addQER(ctx context.Context, done chan<- bool, qer qer) {
 				log.Println("Error marshalling the rule", q, err)
 				return
 			}
-			b.processQER(ctx, any, "add")
+			b.processQER(ctx, any, upfMsgTypeAdd)
 		}
 		done <- true
 	}()
@@ -816,7 +816,7 @@ func (b *bess) delQER(ctx context.Context, done chan<- bool, qer qer) {
 				log.Println("Error marshalling the rule", q, err)
 				return
 			}
-			b.processQER(ctx, any, "delete")
+			b.processQER(ctx, any, upfMsgTypeDel)
 		}
 
 		if qer.dlMbr != 0 {
@@ -833,7 +833,7 @@ func (b *bess) delQER(ctx context.Context, done chan<- bool, qer qer) {
 				log.Println("Error marshalling the rule", q, err)
 				return
 			}
-			b.processQER(ctx, any, "delete")
+			b.processQER(ctx, any, upfMsgTypeDel)
 		}
 		done <- true
 	}()
@@ -1026,7 +1026,7 @@ func (b *bess) removeAllQERs(ctx context.Context, done chan<- bool) {
 			return
 		}
 
-		b.processQER(ctx, any, "clear")
+		b.processQER(ctx, any, upfMsgTypeClear)
 		done <- true
 	}()
 }

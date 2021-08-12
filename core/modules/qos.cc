@@ -353,7 +353,7 @@ CommandResponse Qos::ExtractKeyMask(const T &arg, MeteringKey *key,
 
 CommandResponse Qos::CommandAdd(const bess::pb::QosCommandAddArg &arg) {
   gate_idx_t gate = arg.gate();
-
+  
   if (!is_valid_gate(gate)) {
     return CommandFailure(EINVAL, "Invalid gate: %hu", gate);
   }
@@ -367,10 +367,13 @@ CommandResponse Qos::CommandAdd(const bess::pb::QosCommandAddArg &arg) {
   if (err.error().code() != 0) {
     return err;
   }
-
-  struct QosData *data = (struct QosData *)&v.Data;
+  v.cir = arg.cir();
+  v.pir=  arg.pir();
+  v.cbs = arg.cbs(); 
+  v.pbs=  arg.pbs();
+  v.ebs=  arg.ebs();
   struct rte_meter_srtcm_params app_srtcm_params = {
-      .cir = data->cir, .cbs = data->cbs, .ebs = data->ebs};
+      .cir = v.cir, .cbs = v.cbs, .ebs = v.ebs};
 
   int ret = rte_meter_srtcm_profile_config(&v.p, &app_srtcm_params);
   if (ret)

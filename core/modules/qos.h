@@ -53,22 +53,14 @@ static_assert(MAX_FIELD_SIZE <= sizeof(uint64_t),
 #endif
 
 enum { FieldType = 0, ValueType };
-/*
-struct QosKey {
-  uint64_t u64_arr[MAX_FIELDS];
-};
-*/
-struct QosData {
-  uint8_t qfi;
-  uint32_t cir;
-  uint32_t pir;
-  uint32_t cbs;
-  uint32_t pbs;
-  uint32_t ebs;
-} __attribute__((packed));
 
 struct value {
   gate_idx_t ogate;
+  uint64_t cir;
+  uint64_t pir;
+  uint64_t cbs;
+  uint64_t pbs;
+  uint64_t ebs;
   struct rte_meter_srtcm_profile p;
   struct rte_meter_srtcm m;
   MeteringKey Data;
