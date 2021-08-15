@@ -51,10 +51,6 @@ static_assert(MAX_FIELD_SIZE <= sizeof(uint64_t),
 #define METER_GREEN_GATE 1
 #define METER_YELLOW_GATE 2
 #define METER_RED_GATE 3
-#define LOOKUP_FAIL_GATE 4
-#define CONFIG_DROP_GATE 5
-#define UNMETERED_GATE 6
-
 
 #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
 #error this code assumes little endian architecture (x86)

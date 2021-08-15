@@ -198,37 +198,6 @@ class Metering {
         0, 0, &dpdk_params));
   }
 
-  int Srtcm_profile_config(struct rte_meter_srtcm_profile *p,
-                           struct rte_meter_srtcm_params *params) {
-    return rte_meter_srtcm_profile_config(p, params);
-  }
-
-  int Srtcm_config(struct rte_meter_srtcm *m,
-                   struct rte_meter_srtcm_profile *p) {
-    return rte_meter_srtcm_config(m, p);
-  }
-
-  int Trtcm_profile_config(struct rte_meter_trtcm_profile *p,
-                           struct rte_meter_trtcm_params *params) {
-    return rte_meter_trtcm_profile_config(p, params);
-  }
-
-  int Trtcm_config(struct rte_meter_trtcm *m,
-                   struct rte_meter_trtcm_profile *p) {
-    return rte_meter_trtcm_config(m, p);
-  }
-
-  int Trtcm_rfc4115_profile_config(
-      struct rte_meter_trtcm_rfc4115_profile *p,
-      struct rte_meter_trtcm_rfc4115_params *params) {
-    return rte_meter_trtcm_rfc4115_profile_config(p, params);
-  }
-
-  int Trtcm_rfc4115_config(struct rte_meter_trtcm_rfc4115 *m,
-                           struct rte_meter_trtcm_rfc4115_profile *p) {
-    return rte_meter_trtcm_rfc4115_config(m, p);
-  }
-
  private:
   Error MakeError(int code, const std::string &msg = "") {
     return std::make_pair(code, msg);

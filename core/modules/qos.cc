@@ -37,7 +37,7 @@ typedef enum { FIELD_TYPE = 0, VALUE_TYPE } Type;
 using bess::metadata::Attribute;
 #define metering_test 0
 static inline int is_valid_gate(gate_idx_t gate) {
-  return (gate < MAX_GATES || gate == DROP_GATE);
+  return (gate < MAX_GATES || gate == DROP_GATE || gate == METER_GATE || gate > METER_RED_GATE );
 }
 
 const Commands Qos::cmds = {
@@ -98,7 +98,7 @@ CommandResponse Qos::Init(const bess::pb::QosArg &arg) {
 
     size_acc += f.size;
   }
-  default_gate_ = LOOKUP_FAIL_GATE;
+  default_gate_ = DROP_GATE;
   total_key_size_ = align_ceil(size_acc, sizeof(uint64_t));
   for (int i = 0; i < arg.values_size(); i++) {
     const auto &field = arg.values(i);
@@ -172,32 +172,19 @@ void Qos::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
   for (int init = 0; init < cnt; init++) {
     if ((hit_mask & (1ULL << init)) == 0) {
       EmitPacket(ctx, batch->pkts()[init], default_gate);
-      //std::cout << "qer default gate " << default_gate << std::endl;
       continue;
     }
 
-    /* if lookup was successful, then set values (if possible) */
-    if (hit_mask & (1 << init)) {
-
-      //std::cout << "qer gate " << val[init]->ogate << std::endl;
-      if ((val[init]->ogate == CONFIG_DROP_GATE) || 
-            (val[init]->ogate == METER_GREEN_GATE) ||
-            (val[init]->ogate == METER_YELLOW_GATE) ||
-            (val[init]->ogate == METER_RED_GATE)) {
-        //std::cout << "qer drop " << val[init]->ogate << std::endl;
-        EmitPacket(ctx, batch->pkts()[init], CONFIG_DROP_GATE);
-      } else if (val[init]->ogate == UNMETERED_GATE) {
-        //std::cout << "qer unmeter " << val[init]->ogate << std::endl;
-        EmitPacket(ctx, batch->pkts()[init], UNMETERED_GATE);
-      } else if (val[init]->ogate == METER_GATE) {
-        //std::cout << "qer meter before" << val[init]->ogate << std::endl;
+    //meter if ogate is 0
+    if (val[init]->ogate == METER_GATE) {
         uint64_t time = rte_rdtsc();
         uint16_t ogate = CONFIG_DROP_GATE;
         uint8_t color = rte_meter_trtcm_color_blind_check(
                                &val[init]->m, &val[init]->p,
                                time, batch->pkts()[init]->total_len());
 
-        //std::cout << "color : " << color << std::endl;
+        DLOG(INFO) << "color : " << color << std::endl;
+        //update ogate to color specific gate
         pkt = batch->pkts()[0 + init];
         size_t num_values_ = values_.size();
         if (color == RTE_COLOR_GREEN) {
@@ -207,20 +194,22 @@ void Qos::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
         } else if (color == RTE_COLOR_RED) {
             ogate = METER_RED_GATE;
         }
-        //std::cout << "qer meter after" << val[init]->ogate << std::endl;
-        for (size_t i = 0; i < num_values_; i++) {
-          int value_size = values_[i].size;
-          int value_pos = values_[i].pos;
-          int value_off = values_[i].offset;
-          int value_attr_id = values_[i].attr_id;
-          uint8_t *data = pkt->head_data<uint8_t *>() + value_off;
+    }
 
-          if (value_attr_id < 0) { /* if it is offset-based */
-            memcpy(data, reinterpret_cast<uint8_t *>(&(val[init]->Data)) + value_pos,
-                   value_size);
-          } else { /* if it is attribute-based */
+    //update values
+    for (size_t i = 0; i < num_values_; i++) {
+        int value_size = values_[i].size;
+        int value_pos = values_[i].pos;
+        int value_off = values_[i].offset;
+        int value_attr_id = values_[i].attr_id;
+        uint8_t *data = pkt->head_data<uint8_t *>() + value_off;
+
+        if (value_attr_id < 0) { /* if it is offset-based */
+           memcpy(data, reinterpret_cast<uint8_t *>(&(val[init]->Data)) + value_pos,
+                 value_size);
+        } else { /* if it is attribute-based */
             typedef struct {
-              uint8_t bytes[bess::metadata::kMetadataAttrMaxSize];
+            uint8_t bytes[bess::metadata::kMetadataAttrMaxSize];
             } value_t;
             uint8_t *buf = (uint8_t *)(&(val[init]->Data)) + value_pos;
 
@@ -231,35 +220,34 @@ void Qos::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
                        << " at value_pos: " << value_pos << std::endl;
 
             switch (value_size) {
-              case 1:
-                set_attr<uint8_t>(this, value_attr_id, pkt, *((uint8_t *)buf));
+                case 1:
+                    set_attr<uint8_t>(this, value_attr_id, pkt, *((uint8_t *)buf));
                 break;
-              case 2:
-                set_attr<uint16_t>(this, value_attr_id, pkt,
-                                   *((uint16_t *)((uint8_t *)buf)));
+                case 2:
+                    set_attr<uint16_t>(this, value_attr_id, pkt,
+                                       *((uint16_t *)((uint8_t *)buf)));
                 break;
-              case 4:
-                set_attr<uint32_t>(this, value_attr_id, pkt,
-                                   *((uint32_t *)((uint8_t *)buf)));
+                case 4:
+                    set_attr<uint32_t>(this, value_attr_id, pkt,
+                                       *((uint32_t *)((uint8_t *)buf)));
                 break;
-              case 8:
-                set_attr<uint64_t>(this, value_attr_id, pkt,
-                                   *((uint64_t *)((uint8_t *)buf)));
+                case 8:
+                    set_attr<uint64_t>(this, value_attr_id, pkt,
+                                       *((uint64_t *)((uint8_t *)buf)));
                 break;
-              default: {
-                void *mt_ptr = _ptr_attr_with_offset<value_t>(
-                    attr_offset(value_attr_id), pkt);
-                bess::utils::CopySmall(mt_ptr, buf, value_size);
-              } break;
+                default: {
+                    void *mt_ptr = _ptr_attr_with_offset<value_t>(
+                                                                  attr_offset(value_attr_id), pkt);
+                    bess::utils::CopySmall(mt_ptr, buf, value_size);
+                } break;
             }
-          }
         }
-        //std::cout << "qer meter emit " << ogate << std::endl;
-        EmitPacket(ctx, batch->pkts()[init], ogate);
-      }
     }
+  
+    EmitPacket(ctx, batch->pkts()[init], ogate);
   }
 }
+
 int Qos::GetEntryCount() {
   return table_.Count();
 }

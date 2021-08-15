@@ -20,18 +20,16 @@ import (
 )
 
 const (
-	// MaxUint32 val
-	MaxUint32 = 4294967295
-	//MaxCir val
-	MaxCir = 4000000000
-	//MaxPir val
-	MaxPir = 4000000000
-	//DefaultBurstSize val
+	// DefaultBurstSize for cbs, pbs required for dpdk  metering
 	DefaultBurstSize = 2048
 	// SockAddr : Unix Socket path to read bess notification from
 	SockAddr = "/tmp/notifycp"
 	// PfcpAddr : Unix Socket path to send end marker packet
 	PfcpAddr = "/tmp/pfcpport"
+    // Internal gates for QER
+    gateMeter = iota
+    gateStatusDrop = iota + 5
+    gateUnmeter
 )
 
 var intEnc = func(u uint64) *pb.FieldData {
@@ -428,7 +426,7 @@ func (b *bess) sim(u *upf, method string) {
 			fseID:     uint64(n3TEID + i),
 			ctrID:     i,
 			farID:     n3,
-			qerID:     n3 + 5,
+			qerID:     n6,
 			needDecap: 0,
 		}
 
@@ -446,7 +444,7 @@ func (b *bess) sim(u *upf, method string) {
 			fseID:     uint64(n3TEID + i),
 			ctrID:     i,
 			farID:     n3,
-			qerID:     n3 + 5,
+			qerID:     n9,
 			needDecap: 1,
 		}
 
@@ -467,7 +465,7 @@ func (b *bess) sim(u *upf, method string) {
 			fseID:     uint64(n3TEID + i),
 			ctrID:     i,
 			farID:     n6,
-			qerID:     n6 + 5,
+			qerID:     n6,
 			needDecap: 1,
 		}
 
@@ -487,7 +485,7 @@ func (b *bess) sim(u *upf, method string) {
 			fseID:     uint64(n3TEID + i),
 			ctrID:     i,
 			farID:     n9,
-			qerID:     n9 + 5,
+			qerID:     n9,
 			needDecap: 1,
 		}
 
@@ -698,14 +696,14 @@ func (b *bess) processQER(ctx context.Context, any *anypb.Any, method upfMsgType
 	if err != nil {
 		log.Println("qerLookup method failed!:", err)
 	}
-	log.Println("process QER : ", val)
+	log.Traceln("process QER : ", val)
 }
 
 func (b *bess) addQER(ctx context.Context, done chan<- bool, qer qer) {
 	go func() {
 		var any *anypb.Any
 		var err error
-		var cir, pir, cbs, ebs, pbs uint64
+		var cir, pir, cbs, ebs, pbs , gate uint64
 		var srcIface uint8
 		if qosVal, ok := b.qciQosMap[qer.qfi]; ok {
 			cbs = uint64(qosVal.cbs)
@@ -718,81 +716,80 @@ func (b *bess) addQER(ctx context.Context, done chan<- bool, qer qer) {
 			ebs = uint64(DefaultBurstSize)
 			pbs = uint64(DefaultBurstSize)
 		}
-		if qer.ulMbr != 0 {
+
+        // Uplink QER
+        srcIface = access
+        if qer.ulStatus == 0 {
+            gate = gateStatusDrop
+        } else if qer.ulMbr != 0 || qer.ulGbr != 0 {
 			/* MBR/GBR is received in Kilobits/sec.
 			   CIR/PIR is sent in bytes */
-			pir = (qer.ulMbr * 1000) / 8
-			cir = (qer.ulMbr * 1000) / 8
-			if qer.ulGbr != 0 {
-				cir = (qer.ulGbr * 1000) / 8
-			}
-			if cir >= MaxUint32 {
-				cir = MaxCir
-			}
-			if pir >= MaxUint32 {
-				pir = MaxPir
-			}
-			srcIface = access
-			q := &pb.QosCommandAddArg{
-				Gate: uint64(0),
-				Cir:  cir, /* committed info rate */
-				Pir:  pir, /* peak info rate */
-				Cbs:  cbs, /* committed burst size */
-				Pbs:  pbs, /* Peak burst size */
-				Ebs:  ebs, /* Excess burst size */
-				Fields: []*pb.FieldData{
-					intEnc(uint64(srcIface)),  /* Src Intf */
-					intEnc(uint64(qer.qerID)), /* qer_id */
-					intEnc(uint64(qer.fseID)), /* fseid */
-				},
-				Values: []*pb.FieldData{
-					intEnc(uint64(qer.qfi)), /* QFI */
-				},
-			}
-			any, err = anypb.New(q)
-			if err != nil {
-				log.Println("Error marshalling the rule", q, err)
-				return
-			}
-			b.processQER(ctx, any, upfMsgTypeAdd)
-		}
+            cir = Max((qer.ulGbr * 1000) / 8, 1)
+            pir = Max((qer.ulMbr * 1000) / 8, cir)
+            gate = gateMeter
+		} else {
+            gate = gateUnmeter
+        }
 
-		if qer.dlMbr != 0 {
-			pir = (qer.dlMbr * 1000) / 8
-			cir = (qer.dlMbr * 1000) / 8
-			if qer.dlGbr != 0 {
-				cir = (qer.dlGbr * 1000) / 8
-			}
-			if cir >= MaxUint32 {
-				cir = MaxCir
-			}
-			if pir >= MaxUint32 {
-				pir = MaxPir
-			}
-			srcIface = core
-			q := &pb.QosCommandAddArg{
-				Gate: uint64(0),
-				Cir:  cir, /* committed info rate */
-				Pir:  pir, /* peak info rate */
-				Cbs:  cbs, /* committed burst size */
-				Pbs:  pbs, /* Peak burst size */
-				Ebs:  ebs, /* Excess burst size */
-				Fields: []*pb.FieldData{
-					intEnc(uint64(srcIface)),  /* Src Intf */
-					intEnc(uint64(qer.qerID)), /* qer_id */
-					intEnc(uint64(qer.fseID)), /* fseid */
-				},
-				Values: []*pb.FieldData{
-					intEnc(uint64(qer.qfi)), /* QFI */
-				},
-			}
-			any, err = anypb.New(q)
-			if err != nil {
-				log.Println("Error marshalling the rule", q, err)
-				return
-			}
-			b.processQER(ctx, any, upfMsgTypeAdd)
-		}
+        q := &pb.QosCommandAddArg{
+            Gate: gate,
+            Cir:  cir, /* committed info rate */
+            Pir:  pir, /* peak info rate */
+            Cbs:  cbs, /* committed burst size */
+            Pbs:  pbs, /* Peak burst size */
+            Ebs:  ebs, /* Excess burst size */
+            Fields: []*pb.FieldData{
+                intEnc(uint64(srcIface)),  /* Src Intf */
+                intEnc(uint64(qer.qerID)), /* qer_id */
+                intEnc(uint64(qer.fseID)), /* fseid */
+            },
+            Values: []*pb.FieldData{
+                intEnc(uint64(qer.qfi)), /* QFI */
+            },
+        }
+        any, err = anypb.New(q)
+        if err != nil {
+            log.Println("Error marshalling the rule", q, err)
+            return
+        }
+        b.processQER(ctx, any, upfMsgTypeAdd)
+
+        // Downlink QER
+		srcIface = core
+        if qer.dlStatus == 0 {
+            gate = gateStatusDrop
+        } else if qer.dlMbr != 0 || qer.dlGbr != 0 {
+			/* MBR/GBR is received in Kilobits/sec.
+			   CIR/PIR is sent in bytes */
+            cir = Max((qer.dlGbr * 1000) / 8, 1)
+            pir = Max((qer.dlMbr * 1000) / 8, cir)
+            gate = gateMeter
+		} else {
+            gate = gateUnmeter
+        }
+
+        q := &pb.QosCommandAddArg{
+            Gate: gate,
+            Cir:  cir, /* committed info rate */
+            Pir:  pir, /* peak info rate */
+            Cbs:  cbs, /* committed burst size */
+            Pbs:  pbs, /* Peak burst size */
+            Ebs:  ebs, /* Excess burst size */
+            Fields: []*pb.FieldData{
+                intEnc(uint64(srcIface)),  /* Src Intf */
+                intEnc(uint64(qer.qerID)), /* qer_id */
+                intEnc(uint64(qer.fseID)), /* fseid */
+            },
+            Values: []*pb.FieldData{
+                intEnc(uint64(qer.qfi)), /* QFI */
+            },
+        }
+        any, err = anypb.New(q)
+        if err != nil {
+            log.Println("Error marshalling the rule", q, err)
+            return
+        }
+        b.processQER(ctx, any, upfMsgTypeAdd)
 		done <- true
 	}()
 }

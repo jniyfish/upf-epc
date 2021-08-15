@@ -1,0 +1,55 @@
+diff --git a/core/modules/qos.cc b/core/modules/qos.cc
+index c80bdf1..7ec5c35 100644
+--- a/core/modules/qos.cc
++++ b/core/modules/qos.cc
+@@ -178,10 +178,10 @@ void Qos::ProcessBatch(Context *ctx, bess::PacketBatch *batch) {
+     /* if lookup was successful, then set values (if possible) */
+     if (hit_mask & (1 << init)) {
+       uint64_t time = rte_rdtsc();
+-      uint8_t color = rte_meter_srtcm_color_blind_check(
++      uint8_t color = rte_meter_trtcm_color_blind_check(
+           &val[init]->m, &val[init]->p, time, batch->pkts()[init]->total_len());
+ 
+-      if (color != RTE_COLOR_GREEN)
++      if (color == RTE_COLOR_RED)
+         EmitPacket(ctx, batch->pkts()[init], default_gate);
+       else {
+         pkt = batch->pkts()[0 + init];
+@@ -372,17 +372,17 @@ CommandResponse Qos::CommandAdd(const bess::pb::QosCommandAddArg &arg) {
+   v.cbs = arg.cbs(); 
+   v.pbs=  arg.pbs();
+   v.ebs=  arg.ebs();
+-  struct rte_meter_srtcm_params app_srtcm_params = {
+-      .cir = v.cir, .cbs = v.cbs, .ebs = v.ebs};
++  struct rte_meter_trtcm_params app_trtcm_params = {
++      .cir = v.cir, .pir = v.pir, .cbs = v.cbs, .pbs = v.pbs};
+ 
+-  int ret = rte_meter_srtcm_profile_config(&v.p, &app_srtcm_params);
++  int ret = rte_meter_trtcm_profile_config(&v.p, &app_trtcm_params);
+   if (ret)
+     return CommandFailure(
+-        ret, "Insert Failed - rte_meter_srtcm_profile_config failed");
++        ret, "Insert Failed - rte_meter_trtcm_profile_config failed");
+ 
+-  ret = rte_meter_srtcm_config(&v.m, &v.p);
++  ret = rte_meter_trtcm_config(&v.m, &v.p);
+   if (ret) {
+-    return CommandFailure(ret, "Insert Failed - rte_meter_srtcm_config failed");
++    return CommandFailure(ret, "Insert Failed - rte_meter_trtcm_config failed");
+   }
+   table_.Add(v, key);
+   return CommandSuccess();
+diff --git a/core/modules/qos.h b/core/modules/qos.h
+index f6626f0..22d3d78 100644
+--- a/core/modules/qos.h
++++ b/core/modules/qos.h
+@@ -61,8 +61,8 @@ struct value {
+   uint64_t cbs;
+   uint64_t pbs;
+   uint64_t ebs;
+-  struct rte_meter_srtcm_profile p;
+-  struct rte_meter_srtcm m;
++  struct rte_meter_trtcm_profile p;
++  struct rte_meter_trtcm m;
+   MeteringKey Data;
+ } __attribute__((packed));
