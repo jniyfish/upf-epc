@@ -4,9 +4,9 @@
 
 set -e
 # TCP port of bess/web monitor
-gui_port=8000
+gui_port=8033
 bessd_port=10514
-metrics_port=8080
+metrics_port=8333
 
 # Driver options. Choose any one of the three
 #
@@ -14,9 +14,9 @@ metrics_port=8080
 # "af_xdp" uses AF_XDP sockets via DPDK's vdev for pkt I/O. This version is non-zc version. ZC version still needs to be evaluated.
 # "af_packet" uses AF_PACKET sockets via DPDK's vdev for pkt I/O.
 # "sim" uses Source() modules to simulate traffic generation
-mode="dpdk"
+#mode="dpdk"
 #mode="af_xdp"
-#mode="af_packet"
+mode="af_packet"
 #mode="sim"
 
 # Gateway interface(s)
