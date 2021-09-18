@@ -10,7 +10,7 @@ import "io"
 const (
 	_                                    uint8 = 0
 	CauseRequestAccepted                 uint8 = 1
-	CauseRequestRejected                 uint8 = 64
+	CauseRequestRejected                 uint8 = 64 //64
 	CauseSessionContextNotFound          uint8 = 65
 	CauseMandatoryIEMissing              uint8 = 66
 	CauseConditionalIEMissing            uint8 = 67

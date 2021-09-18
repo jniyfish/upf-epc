@@ -10,14 +10,14 @@ package ie
 func NewUPFunctionFeatures(features ...uint8) *IE {
 	var l int
 	if len(features) >= 3 {
-		l = 4
+		l = 2
 	} else {
 		l = 2
 	}
 
 	ie := New(UPFunctionFeatures, make([]byte, l))
 	for i, feature := range features {
-		if i > 3 {
+		if i > 2 {
 			break
 		}
 		ie.Payload[i] = feature

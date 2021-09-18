@@ -94,7 +94,7 @@ func (pc *PFCPConn) handleAssociationSetupRequest(upf *upf, msg message.Message,
 	pc.mgr.nodeID = nodeID
 	log.Println("Association setup NodeID : ", pc.mgr.nodeID)
 
-	features := make([]uint8, 4)
+	features := make([]uint8, 2)
 
 	if upf.enableUeIPAlloc {
 		setUeipFeature(features...)
@@ -350,32 +350,39 @@ func (pc *PFCPConn) handleSessionEstablishmentRequest(upf *upf, msg message.Mess
 	session := pc.mgr.sessions[localSEID]
 
 	for _, cPDR := range sereq.CreatePDR {
+		log.Println("parsePDR")
 		var p pdr
 		if err := p.parsePDR(cPDR, session.localSEID, pc.mgr.appPFDs, upf); err != nil {
 			return sendError(err, ie.CauseRequestRejected)
 		}
 
 		p.fseidIP = fseidIP
+		log.Println("createPDR")
 		session.CreatePDR(p)
 	}
 
 	for _, cFAR := range sereq.CreateFAR {
+		log.Println("parseFAR")
 		var f far
 		if err := f.parseFAR(cFAR, session.localSEID, upf, create); err != nil {
-			return sendError(err, ie.CauseRequestRejected)
+			log.Println("parseFAR: Send Error")
+			//return sendError(err, ie.CauseRequestRejected)
 		}
 
 		f.fseidIP = fseidIP
+		log.Println("createFAR")
 		session.CreateFAR(f)
 	}
 
 	for _, cQER := range sereq.CreateQER {
+		log.Println("parseQER")
 		var q qer
 		if err := q.parseQER(cQER, session.localSEID, upf); err != nil {
 			return sendError(err, ie.CauseRequestRejected)
 		}
 
 		q.fseidIP = fseidIP
+		log.Println("createQER")
 		session.CreateQER(q)
 	}
 

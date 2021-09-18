@@ -90,6 +90,7 @@ func (f *far) parseFAR(farIE *ie.IE, fseid uint64, upf *upf, op operation) error
 
 	farID, err := farIE.FARID()
 	if err != nil {
+		log.Println("FARID")
 		return err
 	}
 
@@ -97,6 +98,7 @@ func (f *far) parseFAR(farIE *ie.IE, fseid uint64, upf *upf, op operation) error
 
 	action, err := farIE.ApplyAction()
 	if err != nil {
+		log.Println("AA")
 		return err
 	}
 
@@ -107,11 +109,14 @@ func (f *far) parseFAR(farIE *ie.IE, fseid uint64, upf *upf, op operation) error
 	switch op {
 	case create:
 		if (f.applyAction & ActionForward) != 0 {
+			log.Println("FP")
 			fwdIEs, err = farIE.ForwardingParameters()
 		}
 	case update:
+		log.Println("Update")
 		fwdIEs, err = farIE.UpdateForwardingParameters()
 	default:
+		log.Println("Invalid OP")
 		return errors.New("invalid op specified")
 	}
 

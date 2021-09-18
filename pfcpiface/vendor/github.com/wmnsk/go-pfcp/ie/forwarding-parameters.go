@@ -4,6 +4,10 @@
 
 package ie
 
+import (
+	log "github.com/sirupsen/logrus"
+)
+
 // NewForwardingParameters creates a new ForwardingParameters IE.
 func NewForwardingParameters(ies ...*IE) *IE {
 	return newGroupedIE(ForwardingParameters, 0, ies...)
@@ -13,10 +17,13 @@ func NewForwardingParameters(ies ...*IE) *IE {
 func (i *IE) ForwardingParameters() ([]*IE, error) {
 	switch i.Type {
 	case ForwardingParameters:
+		log.Println("Case FP")
 		return ParseMultiIEs(i.Payload)
 	case CreateFAR:
+		log.Println("Case Create FAR")
 		ies, err := i.CreateFAR()
 		if err != nil {
+			log.Println("ERROR: Case Create FAR")
 			return nil, err
 		}
 		for _, x := range ies {
@@ -24,8 +31,10 @@ func (i *IE) ForwardingParameters() ([]*IE, error) {
 				return x.ForwardingParameters()
 			}
 		}
+		log.Println("ERROR: ErrIENotFpund")
 		return nil, ErrIENotFound
 	default:
+		log.Println("Case Default")
 		return nil, &InvalidTypeError{Type: i.Type}
 	}
 }
