@@ -27,7 +27,7 @@ ifaces=("ens803f2" "ens803f3")
 # Static IP addresses of gateway interface(s) in cidr format
 #
 # In the order of (s1u sgi)
-ipaddrs=(198.18.0.1/30 198.19.0.1/30)
+ipaddrs=(198.18.0.1/30 140.113.194.243/27)
 
 # MAC addresses of gateway interface(s)
 #
@@ -37,12 +37,12 @@ macaddrs=(00:15:4d:13:63:5c 00:15:4d:13:63:5d)
 # Static IP addresses of the neighbors of gateway interface(s)
 #
 # In the order of (n-s1u n-sgi)
-nhipaddrs=(198.18.0.2 198.19.0.2)
+nhipaddrs=(198.18.0.2 140.113.194.225)
 
 # Static MAC addresses of the neighbors of gateway interface(s)
 #
 # In the order of (n-s1u n-sgi)
-nhmacaddrs=(88:00:66:99:5b:47 7c:d3:0a:90:83:c1)
+nhmacaddrs=(88:00:66:99:5b:47 88:5a:92:36:f2:7c)
 
 # IPv4 route table entries in cidr format per port
 #

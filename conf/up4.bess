@@ -264,7 +264,6 @@ if ports[parser.core_ifname].ext_addrs is not None:
     UEGate = ports[parser.core_ifname].bpf_gate()
     ports[parser.core_ifname].bpf -> Sink()
 
-
 # 1. Build initial DL pipeline here
 coreFastBPF:UEGate \
     -> coreRxIPCksum::IPChecksum(verify=True, hw=parser.hwcksum) \
@@ -303,7 +302,10 @@ coreRxUDPCksum:1 -> coreRxUDPCksumFail::Sink()
 if ports[parser.core_ifname].nat is not None:
     ue_filter = {"priority": -UEGate,
                  "filter": "ip dst {}".format(ports[parser.core_ifname].ext_addrs), "gate": UEGate}
+    ue_filter2 = {"priority": -UEGate,
+                 "filter": "ip src 8.8.8.8" , "gate": UEGate}
     coreFastBPF.add(filters=[ue_filter])
+    coreFastBPF.add(filters=[ue_filter2])
 
 # Add Core filter rules, i.e.:
 # setting filter to detect gtpu traffic

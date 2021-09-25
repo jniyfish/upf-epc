@@ -11,20 +11,6 @@
     "": "Set the log level to one of \"panic\", \"fatal\", \"error\", \"warning\", \"info\", \"debug\", \"trace\"",
     "log_level": "info",
 
-    "": "Use the sim block to enable simulation using either Source module or via il_trafficgen",
-    "sim": {
-        "": "At this point we can simulate either N3/N6 or N3/N9 traffic, so choose n6 or n9 below",
-        "core": "n6",
-        "start_ue_ip": "16.0.0.1",
-        "start_enb_ip": "11.1.1.129",
-        "start_aupf_ip": "13.1.1.199",
-        "n6_app_ip": "6.6.6.6",
-        "n9_app_ip": "9.9.9.9",
-        "start_n3_teid": "0x30000000",
-        "start_n9_teid": "0x90000000",
-        "pkt_size": 128,
-        "total_flows": 5000
-    },
 
     "": "max IP frag table entries (for IPv4 reassembly). Update the line below to `\"max_ip_defrag_flows\": 1000` to enable",
     "": "max_ip_defrag_flows: 1000",
@@ -52,7 +38,7 @@
     "": "UE IP Natting. Update the line below to `\"ip_masquerade\": \"<ip> [or <ip>]\"` to enable",
     "core": {
         "ifname": "ens803f3",
-        "": "ip_masquerade: 18.0.0.1 or 18.0.0.2 or 18.0.0.3 or 60.60.0.1"
+        "ip_masquerade": "140.113.194.243"
     },
 
     "": "Number of worker threads. Default: 1",
@@ -105,6 +91,6 @@
     "access_ip": "172.17.0.1/32",
     "p4rtc_server": "onos",
     "p4rtc_port": "51001",
-    "ue_ip_pool": "10.250.0.0/24"
+    "ue_ip_pool": "60.60.0.0/24"
     }
 }
