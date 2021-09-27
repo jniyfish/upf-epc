@@ -103,8 +103,8 @@ function move_ifaces() {
 }
 
 # Stop previous instances of bess* before restarting
-docker stop pause bess bess-routectl bess-web bess-pfcpiface || true
-docker rm -f pause bess bess-routectl bess-web bess-pfcpiface || true
+docker stop pause bess-pfcpiface || true
+docker rm -f pause bess-pfcpiface || true
 sudo rm -rf /var/run/netns/pause
 
 # Build
@@ -145,33 +145,8 @@ case $mode in
 
 esac
 
-# Setup trafficgen routes
-if [ "$mode" != 'sim' ]; then
-	setup_trafficgen_routes
-fi
 
-# Run bessd
-docker run --name bess -td --restart unless-stopped \
-	--cpuset-cpus=12-13 \
-	--ulimit memlock=-1 -v /dev/hugepages:/dev/hugepages \
-	-v "$PWD/conf":/opt/bess/bessctl/conf \
-	--net container:pause \
-	$PRIVS \
-	$DEVICES \
-	upf-epc-bess:"$(<VERSION)" -grpc-url=0.0.0.0:$bessd_port
 
-docker logs bess
-
-# Sleep for a couple of secs before setting up the pipeline
-sleep 10
-docker exec bess ./bessctl run up4
-sleep 10
-
-# Run bess-web
-docker run --name bess-web -d --restart unless-stopped \
-	--net container:bess \
-	--entrypoint bessctl \
-	upf-epc-bess:"$(<VERSION)" http 0.0.0.0 $gui_port
 
 # Run bess-pfcpiface depending on mode type
 docker run --name bess-pfcpiface -td --restart on-failure \
@@ -180,14 +155,5 @@ docker run --name bess-pfcpiface -td --restart on-failure \
 	upf-epc-pfcpiface:"$(<VERSION)" \
 	-config /conf/upf.json
 
-# Don't run any other container if mode is "sim"
-if [ "$mode" == 'sim' ]; then
-	exit
-fi
 
-# Run bess-routectl
-docker run --name bess-routectl -td --restart unless-stopped \
-	-v "$PWD/conf/route_control.py":/route_control.py \
-	--net container:pause --pid container:bess \
-	--entrypoint /route_control.py \
-	upf-epc-bess:"$(<VERSION)" -i "${ifaces[@]}"
+

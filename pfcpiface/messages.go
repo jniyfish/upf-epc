@@ -479,42 +479,46 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 	endMarkerList := make([][]byte, 0, MaxItems)
 
 	for _, cPDR := range smreq.CreatePDR {
+		log.Println("pfcpMOD: parsePDR")
 		var p pdr
 		if err := p.parsePDR(cPDR, localSEID, pc.mgr.appPFDs, upf); err != nil {
-			return sendError(err)
+			//return sendError(err)
 		}
 
 		p.fseidIP = fseidIP
-
+		log.Println("pfcpMOD: createPDR")
 		session.CreatePDR(p)
 		addPDRs = append(addPDRs, p)
 	}
 
 	for _, cFAR := range smreq.CreateFAR {
+		log.Println("pfcpMOD: parsePDR")
 		var f far
 		if err := f.parseFAR(cFAR, localSEID, upf, create); err != nil {
 			return sendError(err)
 		}
 
 		f.fseidIP = fseidIP
-
+		log.Println("pfcpMOD: createFAR")
 		session.CreateFAR(f)
 		addFARs = append(addFARs, f)
 	}
 
 	for _, cQER := range smreq.CreateQER {
+		log.Println("pfcpMOD: parseQER")
 		var q qer
 		if err := q.parseQER(cQER, localSEID, upf); err != nil {
 			return sendError(err)
 		}
 
 		q.fseidIP = fseidIP
-
+		log.Println("pfcpMOD: createQER")
 		session.CreateQER(q)
 		addQERs = append(addQERs, q)
 	}
 
 	for _, uPDR := range smreq.UpdatePDR {
+		log.Println("pfcpMOD: updatePDR")
 		var (
 			p   pdr
 			err error
@@ -536,6 +540,7 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 	}
 
 	for _, uFAR := range smreq.UpdateFAR {
+		log.Println("pfcpMOD: updateFAR")
 		var (
 			f   far
 			err error
@@ -557,6 +562,7 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 	}
 
 	for _, uQER := range smreq.UpdateQER {
+		log.Println("pfcpMOD: updateQER")
 		var (
 			q   qer
 			err error
