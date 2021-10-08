@@ -294,6 +294,7 @@ func (p *pdr) parsePDR(ie1 *ie.IE, seid uint64, appPFDs map[string]appPFD, upf *
 
 	qerID, err := ie1.QERID()
 	if err != nil {
+		qerID = 1
 		log.Println("Could not read QER ID!")
 	}
 

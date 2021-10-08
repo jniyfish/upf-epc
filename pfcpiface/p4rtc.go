@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
+	//"net"
 
 	"github.com/golang/protobuf/proto"
 	grpcRetry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
@@ -42,6 +43,34 @@ type IntfTableEntry struct {
 	PrefixLen int
 	SrcIntf   string
 	Direction string
+}
+
+//RouteTableEntry ... Interface Table Entry API.
+type RouteTableEntry struct {
+	IP        []byte
+	PrefixLen int
+	SRC_MAC	  []byte
+	DST_MAC	  []byte
+	Port      []byte
+}
+
+type ACLTableEntry struct {
+	inport        []byte
+	src_iface     []byte
+	eth_src       []byte
+	eth_dst       []byte
+	eth_type      []byte
+	ipv4_src      []byte
+	ipv4_dst      []byte
+	ipv4_proto    []byte
+	l4_sport      []byte
+	l4_dport      []byte
+	egress_port   []byte
+}
+
+//RouteTableEntry ... Interface Table Entry API.
+type StationTableEntry struct {
+	DST_MAC        []byte
 }
 
 // ActionParam ... Action Param API.
@@ -309,23 +338,8 @@ func (c *P4rtClient) WriteFarTable(farEntry far, funcType uint8) error {
 		te.Params[6].Value = make([]byte, 2)
 		binary.BigEndian.PutUint16(te.Params[6].Value, farEntry.tunnelPort)
 		te.Params[7].Name = "tunnel_type"
-		enumName := "TunnelType"
-		var tunnelStr string
-		switch farEntry.tunnelType {
-		case 0x01:
-			tunnelStr = "GTPU"
-		default:
-			log.Println("Unknown tunneling not handled in p4rt.")
-			return nil
-		}
-
-		val, err := c.getEnumVal(enumName, tunnelStr)
-		if err != nil {
-			log.Println("Could not find enum val ", err)
-			return err
-		}
 		te.Params[7].Value = make([]byte, 1)
-		te.Params[7].Value[0] = val[0]
+		te.Params[7].Value = []byte{0x03}
 	}
 
 	return c.InsertTableEntry(te, funcType, prio)
@@ -378,6 +392,7 @@ func (c *P4rtClient) WritePdrTable(pdrEntry pdr, funcType uint8) error {
 	} else if pdrEntry.srcIface == core {
 		te.Fields[1].Name = "ue_addr"
 		te.Fields[1].Value = make([]byte, 4)
+		//te.Fields[1].Value = net.IP{ 60, 60, 0, 1}
 		binary.BigEndian.PutUint32(te.Fields[1].Value, pdrEntry.dstIP)
 		te.Fields[1].Mask = make([]byte, 4)
 		binary.BigEndian.PutUint32(te.Fields[1].Mask, pdrEntry.dstIPMask)
@@ -397,7 +412,7 @@ func (c *P4rtClient) WritePdrTable(pdrEntry pdr, funcType uint8) error {
 		}()
 
 		return nil
-	} else if funcType == FunctionTypeInsert {
+	} else  {//if funcType == FunctionTypeInsert{   //funcType == FunctionTypeInsert  ==2,3
 		te.ParamSize = 5
 		te.Params = make([]ActionParam, te.ParamSize)
 		te.Params[0].Name = "id"
@@ -441,12 +456,10 @@ func (c *P4rtClient) WriteInterfaceTable(intfEntry IntfTableEntry, funcType uint
 	te.Fields[0].Name = "ipv4_dst_prefix"
 	te.Fields[0].Value = intfEntry.IP
 	te.Fields[0].PrefixLen = uint32(intfEntry.PrefixLen)
-
 	te.ParamSize = 2
 	te.Params = make([]ActionParam, 2)
 	te.Params[0].Name = SrcIfaceStr
 	enumName := InterfaceTypeStr
-
 	val, err := c.getEnumVal(enumName, intfEntry.SrcIntf)
 	if err != nil {
 		log.Println("Could not find enum val ", err)
@@ -1189,4 +1202,136 @@ func CreateChannel(host string,
 	}
 
 	return client, nil
+}
+
+
+func (c *P4rtClient) WriteRoutingTable(routeEntry RouteTableEntry, funcType uint8) error {
+	log.Println("WriteRouteTable.")
+
+	te := AppTableEntry{
+		TableName:  "PreQosPipe.Routing.routes_v4",
+		ActionName: "PreQosPipe.Routing.route",
+	}
+
+	te.FieldSize = 1
+	te.Fields = make([]MatchField, 1)
+	te.Fields[0].Name = "dst_prefix"
+	te.Fields[0].Value = routeEntry.IP
+	te.Fields[0].PrefixLen = uint32(routeEntry.PrefixLen)
+
+	te.ParamSize = 3
+	te.Params = make([]ActionParam, 3)
+
+	te.Params[0].Name = "src_mac"
+	te.Params[0].Value = routeEntry.SRC_MAC
+	te.Params[0].Len = 48
+
+	te.Params[1].Name = "dst_mac"
+	te.Params[1].Value = routeEntry.DST_MAC
+	te.Params[1].Len = 48
+	
+
+	te.Params[2].Value = routeEntry.Port
+	te.Params[2].Name = "egress_port"
+	te.Params[2].Len = 9
+
+
+	var prio int32
+
+	return c.InsertTableEntry(te, funcType, prio)
+}
+ 
+func (c *P4rtClient) WriteAclTable(AclEntry ACLTableEntry, funcType uint8) error {
+	log.Println("WriteACLTable.")
+
+	te := AppTableEntry{
+		TableName:  "PreQosPipe.Acl.acls",
+		ActionName: "PreQosPipe.Acl.set_port",
+	}
+
+	te.FieldSize = 10
+	te.Fields = make([]MatchField, 10)
+	te.Fields[0].Name = "inport"
+	te.Fields[1].Name = "src_iface"
+	te.Fields[2].Name = "eth_src"
+	te.Fields[3].Name = "eth_dst"
+	te.Fields[4].Name = "eth_type"
+	te.Fields[5].Name = "ipv4_src"
+	te.Fields[6].Name = "ipv4_dst"
+	te.Fields[7].Name = "ipv4_proto"
+	te.Fields[8].Name = "l4_sport"
+	te.Fields[9].Name = "l4_dport"
+	te.Fields[0].Len = 9
+	te.Fields[1].Len = 8
+	te.Fields[2].Len = 48 
+	te.Fields[3].Len = 48
+	te.Fields[4].Len = 16
+	te.Fields[5].Len = 32 
+	te.Fields[6].Len = 32 
+	te.Fields[7].Len = 8
+	te.Fields[8].Len = 16
+	te.Fields[9].Len = 16
+
+	te.Fields[0].Mask = make([]byte, 1)
+	te.Fields[1].Mask = make([]byte, 1)
+	te.Fields[2].Mask = make([]byte, 6)
+	te.Fields[3].Mask = make([]byte, 6)
+	te.Fields[4].Mask = make([]byte, 2)
+	te.Fields[5].Mask = make([]byte, 4)
+	te.Fields[6].Mask = make([]byte, 4)
+	te.Fields[7].Mask = make([]byte, 1)
+	te.Fields[8].Mask = make([]byte, 2)
+	te.Fields[9].Mask = make([]byte, 2)
+
+	te.Fields[0].Mask = []byte{0xff}
+	te.Fields[1].Mask = []byte{0xff}
+	te.Fields[2].Mask = []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	te.Fields[3].Mask = []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	te.Fields[4].Mask = []byte{0xff, 0xff}
+	te.Fields[5].Mask = []byte{0xff, 0xff, 0xff, 0xff}
+	te.Fields[6].Mask = []byte{0xff, 0xff, 0xff, 0xff}
+	te.Fields[7].Mask = []byte{0xff}
+	te.Fields[8].Mask = []byte{0xff, 0xff}
+	te.Fields[9].Mask = []byte{0xff, 0xff}
+
+	te.Fields[0].Value = AclEntry.inport
+	te.Fields[1].Value = AclEntry.src_iface
+	te.Fields[2].Value = AclEntry.eth_src
+	te.Fields[3].Value = AclEntry.eth_dst
+	te.Fields[4].Value = AclEntry.eth_type
+	te.Fields[5].Value = AclEntry.ipv4_src
+	te.Fields[6].Value = AclEntry.ipv4_dst
+	te.Fields[7].Value = AclEntry.ipv4_proto
+	te.Fields[8].Value = AclEntry.l4_sport
+	te.Fields[9].Value = AclEntry.l4_dport
+
+	te.ParamSize = 1
+	te.Params = make([]ActionParam, 1)
+	te.Params[0].Name = "port"
+	te.Params[0].Value = AclEntry.egress_port
+	te.Params[0].Len = 9
+	
+
+
+	var prio int32
+	prio = 1
+
+	return c.InsertTableEntry(te, funcType, prio)
+}
+
+
+func (c *P4rtClient) WriteStationTable(stationEntry StationTableEntry, funcType uint8) error {
+	log.Println("WriteStationTable.")
+	te := AppTableEntry{
+		TableName:  "PreQosPipe.my_station",
+		ActionName: "NoAction",
+	}
+	te.FieldSize = 1
+	te.Fields = make([]MatchField, 1)
+	te.Fields[0].Name = "dst_mac"
+	te.Fields[0].Value = stationEntry.DST_MAC
+	te.ParamSize = 0
+	var prio int32
+
+	return c.InsertTableEntry(te, funcType, prio)
 }

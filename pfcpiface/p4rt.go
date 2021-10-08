@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	setSWinfo = 0
 	p4RtcServerIP   = flag.String("p4RtcServerIP", "", "P4 Server ip")
 	p4RtcServerPort = flag.String("p4RtcServerPort", "", "P4 Server port")
 )
@@ -68,6 +69,8 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 
 	p4InfoPath := "/bin/p4info.txt"
 	deviceConfigPath := "/bin/bmv2.json"
+	//p4InfoPath := "/bin/up4.txt"
+	//deviceConfigPath := "/bin/up4.json"
 
 	errin := p4rtClient.GetForwardingPipelineConfig()
 	if errin != nil {
@@ -77,7 +80,107 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 			return nil, nil, errin
 		}
 	}
+//insert interface info start
+	
+	S1UipByte := net.IP{ 198, 18, 0, 1}
+	S1UinsertIntfEntry := IntfTableEntry{
+		IP: S1UipByte,
+		PrefixLen: 32,
+		SrcIntf:   "ACCESS",
+		Direction: "UPLINK",
+	}
+	SGIipByte := net.IP{ 60, 60, 0, 1}
+	SGIinsertIntfEntry := IntfTableEntry{
+		IP: SGIipByte,
+		PrefixLen: 32,
+		SrcIntf:   "CORE",
+		Direction: "DOWNLINK",
+	}
+	if setSWinfo == 0{
+		setSWinfo = 1
+		log.Println("setSWinfo: ", setSWinfo)
+		S1UerrInte := p4rtClient.WriteInterfaceTable(S1UinsertIntfEntry, 1)
+		if S1UerrInte != nil {
+			log.Println("Write S1UInterface table failed ", S1UerrInte)
+		}
+		SGIerrInte := p4rtClient.WriteInterfaceTable(SGIinsertIntfEntry, 1)
+		if SGIerrInte != nil {
+			log.Println("Write SGIInterface table failed ", SGIerrInte)
+		}
+		N3stationEntry := StationTableEntry{
+			DST_MAC: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},
+		}
+		N3StationerrInte := p4rtClient.WriteStationTable(N3stationEntry, 1)
+		if N3StationerrInte != nil {
+			log.Println("Write N3StationInterface table failed ", N3StationerrInte)
+		}
 
+		N6stationEntry := StationTableEntry{
+			DST_MAC: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
+		}
+		N6StationerrInte := p4rtClient.WriteStationTable(N6stationEntry, 1)
+		if N6StationerrInte != nil {
+			log.Println("Write N6StationInterface table failed ", N6StationerrInte)
+		}
+
+		UlAclEntry := ACLTableEntry{
+			inport       : []byte{0x01},
+			src_iface    : []byte{0x01},
+			eth_src      : []byte{0x88, 0x00, 0x66, 0x99, 0x5b, 0x47},
+			eth_dst      : []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},
+			eth_type     : []byte{0x08, 0x00},
+			ipv4_src     : net.IP{60, 60, 0, 1} ,
+			ipv4_dst     : net.IP{ 198, 19, 0, 2} ,
+			ipv4_proto   : []byte{0x01},
+			l4_sport     : []byte{0x08, 0x68},
+			l4_dport     : []byte{0x08, 0x68},
+			egress_port  : []byte{0x02},
+		}
+
+		DlAclEntry := ACLTableEntry{
+			inport       : []byte{0x02},
+			src_iface    : []byte{0x02},
+			eth_src      : []byte{0x7c, 0xd3, 0x0a, 0x90, 0x83, 0xc1},
+			eth_dst      : []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
+			eth_type     : []byte{0x08, 0x00},
+			ipv4_src     : net.IP{ 198, 19, 0, 2} ,
+			ipv4_dst     : net.IP{60, 60, 0, 1} ,
+			ipv4_proto   : []byte{0x01},
+			l4_sport     : []byte{0x00, 0x00},
+			l4_dport     : []byte{0x00, 0x00},
+			egress_port  : []byte{0x01},
+		}
+		log.Println("Insert ACL")
+		UlAclErr := p4rtClient.WriteAclTable(UlAclEntry ,1)
+		if UlAclErr != nil {
+			log.Println("Write ACL table failed ", UlAclErr)
+		}
+		DlAclErr := p4rtClient.WriteAclTable(DlAclEntry ,1)
+		if DlAclErr != nil {
+			log.Println("Write ACL table failed ", DlAclErr)
+		}
+		ULrouteEntry := RouteTableEntry{
+			IP	:	net.IP{ 198, 19, 0, 2},
+			PrefixLen	:	32,
+			SRC_MAC		: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
+			DST_MAC		: []byte{0x7c, 0xd3, 0x0a, 0x90, 0x83, 0xc1},
+			Port        : []byte{0x02},
+		}
+		DLrouteEntry := RouteTableEntry{
+			IP	:	net.IP{ 198, 18, 0, 2},
+			PrefixLen	:	32,
+			SRC_MAC		: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},
+			DST_MAC		: []byte{0x88, 0x00, 0x66, 0x99, 0x5b, 0x47},
+			Port        : []byte{0x01},
+		}
+		p4rtClient.WriteRoutingTable(ULrouteEntry ,1)
+		p4rtClient.WriteRoutingTable(DLrouteEntry ,1)
+		setSWinfo = 2
+		log.Println("setSWinfo: ", setSWinfo)
+		//return nil, nil, errin
+	}
+	
+//insert interface info end
 	intfEntry := IntfTableEntry{
 		SrcIntf:   "ACCESS",
 		Direction: "UPLINK",
@@ -256,12 +359,12 @@ func (p *p4rtc) isConnected(accessIP *net.IP) bool {
 func (p *p4rtc) sendDeleteAllSessionsMsgtoUPF() {
 	log.Println("Loop through sessions and delete all entries p4")
 
-	if (p.pfcpConn != nil) && (p.pfcpConn.mgr != nil) {
-		for seidKey, value := range p.pfcpConn.mgr.sessions {
-			p.sendMsgToUPF(upfMsgTypeDel, value.pdrs, value.fars, nil)
-			p.pfcpConn.mgr.RemoveSession(seidKey)
-		}
-	}
+	//if (p.pfcpConn != nil) && (p.pfcpConn.mgr != nil) {
+	//	for seidKey, value := range p.pfcpConn.mgr.sessions {
+	//		p.sendMsgToUPF(upfMsgTypeDel, value.pdrs, value.fars, nil)
+	//		p.pfcpConn.mgr.RemoveSession(seidKey)
+	//	}
+	//}
 }
 
 func (p *p4rtc) sim(u *upf, method string) {
@@ -360,7 +463,7 @@ func (p *p4rtc) sendMsgToUPF(method upfMsgType, pdrs []pdr, fars []far, qers []q
 		log.Println("p4rtc server not connected")
 		return cause
 	}
-
+	
 	switch method {
 	case upfMsgTypeAdd:
 		{
@@ -397,7 +500,7 @@ func (p *p4rtc) sendMsgToUPF(method upfMsgType, pdrs []pdr, fars []far, qers []q
 	for _, pdr := range pdrs {
 		log.Traceln(pdr)
 		log.Traceln("write pdr funcType : ", funcType)
-
+		log.Println("index: ", funcType)
 		errin := p.p4client.WritePdrTable(pdr, funcType)
 		if errin != nil {
 			resetCounterVal(p, preQosPdrCounter, uint64(pdr.ctrID))
@@ -410,14 +513,13 @@ func (p *p4rtc) sendMsgToUPF(method upfMsgType, pdrs []pdr, fars []far, qers []q
 	for _, far := range fars {
 		log.Traceln(far)
 		log.Traceln("write far funcType : ", funcType)
-
 		errin := p.p4client.WriteFarTable(far, funcType)
 		if errin != nil {
 			log.Println("far entry function failed ", errin)
 			return cause
 		}
 	}
-
+	//p.p4client.WritePdrTable(pdr, funcType)
 	cause = ie.CauseRequestAccepted
 
 	return cause

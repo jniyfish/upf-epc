@@ -367,7 +367,7 @@ func (pc *PFCPConn) handleSessionEstablishmentRequest(upf *upf, msg message.Mess
 	for _, cFAR := range sereq.CreateFAR {
 		var f far
 		if err := f.parseFAR(cFAR, session.localSEID, upf, create); err != nil {
-			return sendError(err, ie.CauseRequestRejected)
+			//return sendError(err, ie.CauseRequestRejected)
 		}
 
 		f.fseidIP = fseidIP
@@ -479,7 +479,8 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 	for _, cPDR := range smreq.CreatePDR {
 		var p pdr
 		if err := p.parsePDR(cPDR, localSEID, pc.mgr.appPFDs, upf); err != nil {
-			return sendError(err)
+			log.Println("cPDR")
+			//return sendError(err)
 		}
 
 		p.fseidIP = fseidIP
@@ -491,7 +492,8 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 	for _, cFAR := range smreq.CreateFAR {
 		var f far
 		if err := f.parseFAR(cFAR, localSEID, upf, create); err != nil {
-			return sendError(err)
+			log.Println("cFAR")
+			//return sendError(err)
 		}
 
 		f.fseidIP = fseidIP
@@ -503,7 +505,8 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 	for _, cQER := range smreq.CreateQER {
 		var q qer
 		if err := q.parseQER(cQER, localSEID, upf); err != nil {
-			return sendError(err)
+			log.Println("cQER")
+			//return sendError(err)
 		}
 
 		q.fseidIP = fseidIP
@@ -519,7 +522,8 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 		)
 
 		if err = p.parsePDR(uPDR, localSEID, pc.mgr.appPFDs, upf); err != nil {
-			return sendError(err)
+			log.Println("uPDR")
+			//return sendError(err)
 		}
 
 		p.fseidIP = fseidIP
@@ -540,7 +544,8 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 		)
 
 		if err = f.parseFAR(uFAR, localSEID, upf, update); err != nil {
-			return sendError(err)
+			log.Println("uFAR")
+			//return sendError(err)
 		}
 
 		f.fseidIP = fseidIP
@@ -561,7 +566,8 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 		)
 
 		if err = q.parseQER(uQER, localSEID, upf); err != nil {
-			return sendError(err)
+			log.Println("uQER")
+			//return sendError(err)
 		}
 
 		q.fseidIP = fseidIP
@@ -577,6 +583,7 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 
 	cause := upf.sendMsgToUPF(upfMsgTypeMod, addPDRs, addFARs, addQERs)
 	if cause == ie.CauseRequestRejected {
+		log.Println("sendMsgToUPF")
 		return sendError(errors.New("write to FastPath failed"))
 	}
 

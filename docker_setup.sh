@@ -4,9 +4,9 @@
 
 set -e
 # TCP port of bess/web monitor
-gui_port=8000
+gui_port=8033
 bessd_port=10514
-metrics_port=8080
+metrics_port=8333
 
 # Driver options. Choose any one of the three
 #
@@ -14,9 +14,9 @@ metrics_port=8080
 # "af_xdp" uses AF_XDP sockets via DPDK's vdev for pkt I/O. This version is non-zc version. ZC version still needs to be evaluated.
 # "af_packet" uses AF_PACKET sockets via DPDK's vdev for pkt I/O.
 # "sim" uses Source() modules to simulate traffic generation
-mode="dpdk"
+#mode="dpdk"
 #mode="af_xdp"
-#mode="af_packet"
+mode="af_packet"
 #mode="sim"
 
 # Gateway interface(s)
@@ -32,7 +32,7 @@ ipaddrs=(198.18.0.1/30 198.19.0.1/30)
 # MAC addresses of gateway interface(s)
 #
 # In the order of (s1u sgi)
-macaddrs=(9e:b2:d3:34:ab:27 c2:9c:55:d4:8a:f6)
+macaddrs=(00:15:4d:13:63:5c 00:15:4d:13:63:5d)
 
 # Static IP addresses of the neighbors of gateway interface(s)
 #
@@ -42,69 +42,26 @@ nhipaddrs=(198.18.0.2 198.19.0.2)
 # Static MAC addresses of the neighbors of gateway interface(s)
 #
 # In the order of (n-s1u n-sgi)
-nhmacaddrs=(22:53:7a:15:58:50 22:53:7a:15:58:50)
+nhmacaddrs=(88:00:66:99:5b:47 7c:d3:0a:90:83:c1)
 
 # IPv4 route table entries in cidr format per port
 #
 # In the order of ("{r-s1u}" "{r-sgi}")
-routes=("11.1.1.128/25" "0.0.0.0/0")
+routes=("198.18.0.0/30" "0.0.0.0/0")
 
 num_ifaces=${#ifaces[@]}
 num_ipaddrs=${#ipaddrs[@]}
 
-# Set up static route and neighbor table entries of the SPGW
-function setup_trafficgen_routes() {
-	for ((i = 0; i < num_ipaddrs; i++)); do
-		sudo ip netns exec pause ip neighbor add "${nhipaddrs[$i]}" lladdr "${nhmacaddrs[$i]}" dev "${ifaces[$i % num_ifaces]}"
-		routelist=${routes[$i]}
-		for route in $routelist; do
-			sudo ip netns exec pause ip route add "$route" via "${nhipaddrs[$i]}" metric 100
-		done
-	done
-}
-
 # Assign IP address(es) of gateway interface(s) within the network namespace
-function setup_addrs() {
-	for ((i = 0; i < num_ipaddrs; i++)); do
-		sudo ip netns exec pause ip addr add "${ipaddrs[$i]}" dev "${ifaces[$i % $num_ifaces]}"
-	done
-}
 
 # Set up mirror links to communicate with the kernel
 #
 # These vdev interfaces are used for ARP + ICMP updates.
 # ARP/ICMP requests are sent via the vdev interface to the kernel.
 # ARP/ICMP responses are captured and relayed out of the dpdk ports.
-function setup_mirror_links() {
-	for ((i = 0; i < num_ifaces; i++)); do
-		sudo ip netns exec pause ip link add "${ifaces[$i]}" type veth peer name "${ifaces[$i]}"-vdev
-		sudo ip netns exec pause ip link set "${ifaces[$i]}" up
-		sudo ip netns exec pause ip link set "${ifaces[$i]}-vdev" up
-		sudo ip netns exec pause ip link set dev "${ifaces[$i]}" address "${macaddrs[$i]}"
-	done
-	setup_addrs
-}
-
-# Set up interfaces in the network namespace. For non-"dpdk" mode(s)
-function move_ifaces() {
-	for ((i = 0; i < num_ifaces; i++)); do
-		sudo ip link set "${ifaces[$i]}" netns pause up
-		sudo ip netns exec pause ip link set "${ifaces[$i]}" promisc off
-		sudo ip netns exec pause ip link set "${ifaces[$i]}" xdp off
-		if [ "$mode" == 'af_xdp' ]; then
-			sudo ip netns exec pause ethtool --features "${ifaces[$i]}" ntuple off
-			sudo ip netns exec pause ethtool --features "${ifaces[$i]}" ntuple on
-			sudo ip netns exec pause ethtool -N "${ifaces[$i]}" flow-type udp4 action 0
-			sudo ip netns exec pause ethtool -N "${ifaces[$i]}" flow-type tcp4 action 0
-			sudo ip netns exec pause ethtool -u "${ifaces[$i]}"
-		fi
-	done
-	setup_addrs
-}
-
 # Stop previous instances of bess* before restarting
-docker stop pause bess bess-routectl bess-web bess-pfcpiface || true
-docker rm -f pause bess bess-routectl bess-web bess-pfcpiface || true
+docker stop pause bess-pfcpiface || true
+docker rm -f pause bess-pfcpiface || true
 sudo rm -rf /var/run/netns/pause
 
 # Build
@@ -137,7 +94,6 @@ sudo ln -s "$sandbox" /var/run/netns/pause
 case $mode in
 "dpdk" | "sim") setup_mirror_links ;;
 "af_xdp" | "af_packet")
-	move_ifaces
 	# Make sure that kernel does not send back icmp dest unreachable msg(s)
 	sudo ip netns exec pause iptables -I OUTPUT -p icmp --icmp-type port-unreachable -j DROP
 	;;
@@ -145,33 +101,8 @@ case $mode in
 
 esac
 
-# Setup trafficgen routes
-if [ "$mode" != 'sim' ]; then
-	setup_trafficgen_routes
-fi
 
-# Run bessd
-docker run --name bess -td --restart unless-stopped \
-	--cpuset-cpus=12-13 \
-	--ulimit memlock=-1 -v /dev/hugepages:/dev/hugepages \
-	-v "$PWD/conf":/opt/bess/bessctl/conf \
-	--net container:pause \
-	$PRIVS \
-	$DEVICES \
-	upf-epc-bess:"$(<VERSION)" -grpc-url=0.0.0.0:$bessd_port
 
-docker logs bess
-
-# Sleep for a couple of secs before setting up the pipeline
-sleep 10
-docker exec bess ./bessctl run up4
-sleep 10
-
-# Run bess-web
-docker run --name bess-web -d --restart unless-stopped \
-	--net container:bess \
-	--entrypoint bessctl \
-	upf-epc-bess:"$(<VERSION)" http 0.0.0.0 $gui_port
 
 # Run bess-pfcpiface depending on mode type
 docker run --name bess-pfcpiface -td --restart on-failure \
@@ -180,14 +111,5 @@ docker run --name bess-pfcpiface -td --restart on-failure \
 	upf-epc-pfcpiface:"$(<VERSION)" \
 	-config /conf/upf.json
 
-# Don't run any other container if mode is "sim"
-if [ "$mode" == 'sim' ]; then
-	exit
-fi
 
-# Run bess-routectl
-docker run --name bess-routectl -td --restart unless-stopped \
-	-v "$PWD/conf/route_control.py":/route_control.py \
-	--net container:pause --pid container:bess \
-	--entrypoint /route_control.py \
-	upf-epc-bess:"$(<VERSION)" -i "${ifaces[@]}"
+
