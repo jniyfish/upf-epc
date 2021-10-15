@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net"
 	"time"
+	"encoding/hex"
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
@@ -27,7 +28,17 @@ type P4rtcInfo struct {
 	P4rtcServer string `json:"p4rtc_server"`
 	P4rtcPort   string `json:"p4rtc_port"`
 	UEIP        string `json:"ue_ip_pool"`
+
+	S1U_IP		string `json:"s1u_ip"`
+	S1U_MAC		string `json:"s1u_mac"`
+	SGI_IP		string `json:"sgi_ip"`
+	SGI_MAC		string `json:"sgi_mac"`
+	N_S1U_IP    string `json:"n_s1u_ip"`
+	N_S1U_MAC   string `json:"n_s1u_mac"`
+	N_SGI_IP	string `json:"n_sgi_ip"`
+	N_SGI_MAC	string `json:"n_sgi_mac"`
 }
+
 
 // TODO: convert uint8 to enum.
 const (
@@ -55,6 +66,14 @@ type p4rtc struct {
 	pfcpConn         *PFCPConn
 	reportNotifyChan chan<- uint64
 	endMarkerChan    chan []byte
+	s1u_ip			 string 
+	s1u_mac			 string 
+	sgi_ip			 string 
+	sgi_mac			 string 
+	n_s1u_ip    	 string 
+	n_s1u_mac   	 string 
+	n_sgi_ip		 string 
+	n_sgi_mac		 string 
 }
 
 func (p *p4rtc) summaryLatencyJitter(uc *upfCollector, ch chan<- prometheus.Metric) {
@@ -63,7 +82,7 @@ func (p *p4rtc) summaryLatencyJitter(uc *upfCollector, ch chan<- prometheus.Metr
 func (p *p4rtc) portStats(uc *upfCollector, ch chan<- prometheus.Metric) {
 }
 
-func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
+func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 	log.Println("Set Switch Info")
 	log.Println("device id ", (*p4rtClient).DeviceID)
 
@@ -85,11 +104,31 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 	}
 //insert interface info start
 	
-
 	if setSWinfo == 0{
 		setSWinfo = 1
+		S1U_MAC, err := hex.DecodeString(p.s1u_mac)
+		if err != nil {
+			panic(err)
+		}
+		N_S1U_MAC, err := hex.DecodeString(p.n_s1u_mac)
+		if err != nil {
+			panic(err)
+		}
+		SGI_MAC, err := hex.DecodeString(p.sgi_mac)
+		if err != nil {
+			panic(err)
+		}
+		N_SGI_MAC, err := hex.DecodeString(p.n_sgi_mac)
+		if err != nil {
+			panic(err)
+		}
 		log.Println("setSWinfo: ", setSWinfo)
-		S1UipByte := net.IP{ 198, 18, 0, 1}
+		S1UipByte := net.ParseIP(p.s1u_ip) //parseIP return size 16
+		N_S1UipByte := net.ParseIP(p.n_s1u_ip) //parseIP return size 16
+		N_SGIipByte := net.ParseIP(p.n_sgi_ip) //parseIP return size 16
+		S1UipByte = S1UipByte[12:]
+		N_S1UipByte = N_S1UipByte[12:]
+		N_SGIipByte = N_SGIipByte[12:]
 		S1UinsertIntfEntry := IntfTableEntry{
 			IP: S1UipByte,
 			PrefixLen: 32,
@@ -110,16 +149,17 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 		SGIerrInte := p4rtClient.WriteInterfaceTable(SGIinsertIntfEntry, 1)
 		if SGIerrInte != nil {
 			log.Println("Write SGIInterface table failed ", SGIerrInte)
-		} 
+		}
+
 		N3stationEntry := StationTableEntry{
-			DST_MAC: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},
+			DST_MAC: S1U_MAC,
 		}
 		N3StationerrInte := p4rtClient.WriteStationTable(N3stationEntry, 1)
 		if N3StationerrInte != nil {
 			log.Println("Write N3StationInterface table failed ", N3StationerrInte)
 		}
 		N6stationEntry := StationTableEntry{
-			DST_MAC: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
+			DST_MAC: SGI_MAC,
 		}
 		N6StationerrInte := p4rtClient.WriteStationTable(N6stationEntry, 1)
 		if N6StationerrInte != nil {
@@ -130,11 +170,11 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 		UlAclEntry := ACLTableEntry{
 			inport       : []byte{0x00, 0x01},
 			src_iface    : []byte{0x01},
-			eth_src      : []byte{0x88, 0x00, 0x66, 0x99, 0x5b, 0x47},
-			eth_dst      : []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},
+			eth_src      : N_S1U_MAC,
+			eth_dst      : S1U_MAC,
 			eth_type     : []byte{0x08, 0x00},
 			ipv4_src     : net.IP{60, 60, 0, 1} ,
-			ipv4_dst     : net.IP{198, 19, 0, 2} ,
+			ipv4_dst     : N_SGIipByte ,//sgi-n-ip
 			ipv4_proto   : []byte{0x01},
 			l4_sport     : []byte{0x08, 0x68},
 			l4_dport     : []byte{0x08, 0x68},
@@ -143,10 +183,10 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 		DlAclEntry := ACLTableEntry{
 			inport       : []byte{0x00, 0x02},
 			src_iface    : []byte{0x02},
-			eth_src      : []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},//[]byte{0x7c, 0xd3, 0x0a, 0x90, 0x83, 0xc1},
-			eth_dst      : []byte{0x88, 0x00, 0x66, 0x99, 0x5b, 0x47},//[]byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
+			eth_src      : S1U_MAC,
+			eth_dst      : N_S1U_MAC,
 			eth_type     : []byte{0x08, 0x00},
-			ipv4_src     : net.IP{ 198, 19, 0, 2} ,
+			ipv4_src     : N_SGIipByte ,//sgi-n-ip
 			ipv4_dst     : net.IP{60, 60, 0, 1} ,
 			ipv4_proto   : []byte{0x01},
 			l4_sport     : []byte{0x00, 0x00},
@@ -163,17 +203,17 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 			log.Println("Write ACL table failed ", DlAclErr)
 		}
 		ULrouteEntry := RouteTableEntry{
-			IP	:	net.IP{ 198, 19, 0, 2},
+			IP	:	N_SGIipByte,
 			PrefixLen	:	32,
-			SRC_MAC		: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
-			DST_MAC		: []byte{0x7c, 0xd3, 0x0a, 0x90, 0x83, 0xc1},
+			SRC_MAC		: SGI_MAC,
+			DST_MAC		: N_SGI_MAC,
 			Port        : []byte{0x00, 0x02},
 		}
 		DLrouteEntry := RouteTableEntry{
-			IP	:	net.IP{ 198, 18, 0, 2},
+			IP	:	N_S1UipByte,
 			PrefixLen	:	32,
-			SRC_MAC		: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},
-			DST_MAC		: []byte{0x88, 0x00, 0x66, 0x99, 0x5b, 0x47},
+			SRC_MAC		: S1U_MAC,
+			DST_MAC		: N_S1U_MAC,
 			Port        : []byte{0x00, 0x01},
 		}
 		p4rtClient.WriteRoutingTable(ULrouteEntry ,1)
@@ -281,7 +321,7 @@ func (p *p4rtc) channelSetup() (*P4rtClient, error) {
 	if localclient != nil {
 		log.Println("device id ", (*localclient).DeviceID)
 
-		p.accessIP, p.accessIPMask, errin = setSwitchInfo(localclient)
+		p.accessIP, p.accessIPMask, errin = p.setSwitchInfo(localclient)
 		if errin != nil {
 			log.Println("Switch set info failed ", errin)
 			return nil, errin
@@ -386,6 +426,14 @@ func (p *p4rtc) setUpfInfo(u *upf, conf *Conf) {
 	log.Println("p4rtc server ip/name", p.p4rtcServer)
 	p.p4rtcPort = conf.P4rtcIface.P4rtcPort
 	p.reportNotifyChan = u.reportNotifyChan
+	p.s1u_ip = conf.P4rtcIface.S1U_IP
+	p.s1u_mac = conf.P4rtcIface.S1U_MAC
+	p.sgi_ip = conf.P4rtcIface.SGI_IP
+	p.sgi_mac = conf.P4rtcIface.SGI_MAC
+	p.n_s1u_ip = conf.P4rtcIface.N_S1U_IP
+	p.n_s1u_mac = conf.P4rtcIface.N_S1U_MAC
+	p.n_sgi_ip = conf.P4rtcIface.N_SGI_IP
+	p.n_sgi_mac = conf.P4rtcIface.N_SGI_MAC
 
 	if *p4RtcServerIP != "" {
 		p.p4rtcServer = *p4RtcServerIP
