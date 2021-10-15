@@ -1,15 +1,12 @@
 #!/bin/bash
 
+JSON=$1
+P4INFO=$2
 
 docker exec stratum sudo mkdir /etc/stratum/
 docker exec stratum sudo mkdir /var/log/stratum/
-docker cp ./conf/p4/bin/up4.txt stratum:/etc/stratum/pipeline_cfg.pb.txt
-#docker cp ./conf/p4/bin/p4info.txt stratum:/etc/stratum/pipeline_cfg.pb.txt
-docker cp ./conf/p4/bin/up4.json stratum:/etc/stratum/dummy.json
-#docker cp ./conf/p4/bin/bmv2.json stratum:/etc/stratum/dummy.json
-#docker cp ./conf/p4/bin/up4.txt stratum:/var/log/stratum/p4_reads.pb.txt.
-#docker cp ./conf/p4/bin/up4.txt stratum:/var/log/stratum/p4_reads.pb.txt
-#docker cp ./conf/p4/bin/up4.txt stratum:/var/log/stratum/p4_writes.pb.txt.
+docker cp ${JSON} stratum:/etc/stratum/dummy.json
+docker cp ${P4INFO} stratum:/etc/stratum/pipeline_cfg.pb.txt
 
 pid_stratum=$(sudo docker inspect -f '{{.State.Pid}}' stratum)
 sudo ip link set ens803f2 netns $pid_stratum

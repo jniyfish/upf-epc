@@ -67,10 +67,13 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 	log.Println("Set Switch Info")
 	log.Println("device id ", (*p4rtClient).DeviceID)
 
-	p4InfoPath := "/bin/p4info.txt"
-	deviceConfigPath := "/bin/bmv2.json"
-	//p4InfoPath := "/bin/up4.txt"
-	//deviceConfigPath := "/bin/up4.json"
+	//v1model
+	//p4InfoPath := "/bin/p4info.txt"
+	//deviceConfigPath := "/bin/bmv2.json"
+
+	//tna
+	p4InfoPath := "/bin/up4.txt"
+	deviceConfigPath := "/bin/out.bin"
 
 	errin := p4rtClient.GetForwardingPipelineConfig()
 	if errin != nil {
@@ -82,31 +85,32 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 	}
 //insert interface info start
 	
-	S1UipByte := net.IP{ 198, 18, 0, 1}
-	S1UinsertIntfEntry := IntfTableEntry{
-		IP: S1UipByte,
-		PrefixLen: 32,
-		SrcIntf:   "ACCESS",
-		Direction: "UPLINK",
-	}
-	SGIipByte := net.IP{ 60, 60, 0, 1}
-	SGIinsertIntfEntry := IntfTableEntry{
-		IP: SGIipByte,
-		PrefixLen: 32,
-		SrcIntf:   "CORE",
-		Direction: "DOWNLINK",
-	}
+
 	if setSWinfo == 0{
 		setSWinfo = 1
 		log.Println("setSWinfo: ", setSWinfo)
+		S1UipByte := net.IP{ 198, 18, 0, 1}
+		S1UinsertIntfEntry := IntfTableEntry{
+			IP: S1UipByte,
+			PrefixLen: 32,
+			SrcIntf:   "ACCESS",
+			Direction: "UPLINK",
+		}
 		S1UerrInte := p4rtClient.WriteInterfaceTable(S1UinsertIntfEntry, 1)
 		if S1UerrInte != nil {
 			log.Println("Write S1UInterface table failed ", S1UerrInte)
 		}
+		SGIipByte := net.IP{ 60, 60, 0, 1}
+		SGIinsertIntfEntry := IntfTableEntry{
+			IP: SGIipByte,
+			PrefixLen: 32,
+			SrcIntf:   "CORE",
+			Direction: "DOWNLINK",
+		}
 		SGIerrInte := p4rtClient.WriteInterfaceTable(SGIinsertIntfEntry, 1)
 		if SGIerrInte != nil {
 			log.Println("Write SGIInterface table failed ", SGIerrInte)
-		}
+		} 
 		N3stationEntry := StationTableEntry{
 			DST_MAC: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},
 		}
@@ -114,7 +118,6 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 		if N3StationerrInte != nil {
 			log.Println("Write N3StationInterface table failed ", N3StationerrInte)
 		}
-
 		N6stationEntry := StationTableEntry{
 			DST_MAC: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
 		}
@@ -123,32 +126,32 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 			log.Println("Write N6StationInterface table failed ", N6StationerrInte)
 		}
 
+		
 		UlAclEntry := ACLTableEntry{
-			inport       : []byte{0x01},
+			inport       : []byte{0x00, 0x01},
 			src_iface    : []byte{0x01},
 			eth_src      : []byte{0x88, 0x00, 0x66, 0x99, 0x5b, 0x47},
 			eth_dst      : []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},
 			eth_type     : []byte{0x08, 0x00},
 			ipv4_src     : net.IP{60, 60, 0, 1} ,
-			ipv4_dst     : net.IP{ 198, 19, 0, 2} ,
+			ipv4_dst     : net.IP{198, 19, 0, 2} ,
 			ipv4_proto   : []byte{0x01},
 			l4_sport     : []byte{0x08, 0x68},
 			l4_dport     : []byte{0x08, 0x68},
-			egress_port  : []byte{0x02},
+			egress_port  : []byte{0x00, 0x02},
 		}
-
 		DlAclEntry := ACLTableEntry{
-			inport       : []byte{0x02},
+			inport       : []byte{0x00, 0x02},
 			src_iface    : []byte{0x02},
-			eth_src      : []byte{0x7c, 0xd3, 0x0a, 0x90, 0x83, 0xc1},
-			eth_dst      : []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
+			eth_src      : []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},//[]byte{0x7c, 0xd3, 0x0a, 0x90, 0x83, 0xc1},
+			eth_dst      : []byte{0x88, 0x00, 0x66, 0x99, 0x5b, 0x47},//[]byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
 			eth_type     : []byte{0x08, 0x00},
 			ipv4_src     : net.IP{ 198, 19, 0, 2} ,
 			ipv4_dst     : net.IP{60, 60, 0, 1} ,
 			ipv4_proto   : []byte{0x01},
 			l4_sport     : []byte{0x00, 0x00},
 			l4_dport     : []byte{0x00, 0x00},
-			egress_port  : []byte{0x01},
+			egress_port  : []byte{0x00, 0x01},
 		}
 		log.Println("Insert ACL")
 		UlAclErr := p4rtClient.WriteAclTable(UlAclEntry ,1)
@@ -164,17 +167,18 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 			PrefixLen	:	32,
 			SRC_MAC		: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5d},
 			DST_MAC		: []byte{0x7c, 0xd3, 0x0a, 0x90, 0x83, 0xc1},
-			Port        : []byte{0x02},
+			Port        : []byte{0x00, 0x02},
 		}
 		DLrouteEntry := RouteTableEntry{
 			IP	:	net.IP{ 198, 18, 0, 2},
 			PrefixLen	:	32,
 			SRC_MAC		: []byte{0x00, 0x15, 0x4d, 0x13, 0x63, 0x5c},
 			DST_MAC		: []byte{0x88, 0x00, 0x66, 0x99, 0x5b, 0x47},
-			Port        : []byte{0x01},
+			Port        : []byte{0x00, 0x01},
 		}
 		p4rtClient.WriteRoutingTable(ULrouteEntry ,1)
 		p4rtClient.WriteRoutingTable(DLrouteEntry ,1)
+		
 		setSWinfo = 2
 		log.Println("setSWinfo: ", setSWinfo)
 		//return nil, nil, errin
@@ -185,11 +189,10 @@ func setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 		SrcIntf:   "ACCESS",
 		Direction: "UPLINK",
 	}
-
 	errin = p4rtClient.ReadInterfaceTable(&intfEntry)
 	if errin != nil {
 		log.Println("Read Interface table failed ", errin)
-		return nil, nil, errin
+		//return nil, nil, errin
 	}
 
 	log.Println("accessip after read intf ", intfEntry.IP)
@@ -304,7 +307,7 @@ func initCounter(p *p4rtc) error {
 	}
 
 	p.counters = make([]counter, 2)
-
+	
 	errin = setCounterSize(p, preQosPdrCounter, "PreQosPipe.pre_qos_pdr_counter")
 	if errin != nil {
 		log.Println("preQosPdrCounter counter not found : ", errin)
@@ -346,11 +349,11 @@ func (p *p4rtc) isConnected(accessIP *net.IP) bool {
 			log.Println("clear FAR table failed : ", errin)
 		}
 
-		errin = initCounter(p)
-		if errin != nil {
-			log.Println("Counter Init failed. : ", errin)
-			return false
-		}
+		//errin = initCounter(p)
+		//if errin != nil {
+		//	log.Println("Counter Init failed. : ", errin)
+		//	return false
+		//}
 	}
 
 	return true
@@ -417,6 +420,7 @@ func (p *p4rtc) setUpfInfo(u *upf, conf *Conf) {
 		if errin != nil {
 			log.Println("clear FAR table failed : ", errin)
 		}
+		
 	}
 
 	errin = initCounter(p)
@@ -454,8 +458,8 @@ func (p *p4rtc) sendMsgToUPF(method upfMsgType, pdrs []pdr, fars []far, qers []q
 
 	var (
 		funcType uint8
-		err      error
-		val      uint64
+		//err      error
+		//val      uint64
 		cause    uint8 = ie.CauseRequestRejected
 	)
 
@@ -468,15 +472,15 @@ func (p *p4rtc) sendMsgToUPF(method upfMsgType, pdrs []pdr, fars []far, qers []q
 	case upfMsgTypeAdd:
 		{
 			funcType = FunctionTypeInsert
-			for i := range pdrs {
-				val, err = getCounterVal(p,
-					preQosPdrCounter, pdrs[i].pdrID)
-				if err != nil {
-					log.Println("Counter id alloc failed ", err)
-					return cause
-				}
-				pdrs[i].ctrID = uint32(val)
-			}
+			//for i := range pdrs {
+			//	val, err = getCounterVal(p,
+			//		preQosPdrCounter, pdrs[i].pdrID)
+			//	if err != nil {
+			//		log.Println("Counter id alloc failed ", err)
+			//		return cause
+			//	}
+			//	pdrs[i].ctrID = uint32(val)
+			//}
 		}
 	case upfMsgTypeDel:
 		{

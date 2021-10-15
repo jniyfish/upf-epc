@@ -431,6 +431,7 @@ func (c *P4rtClient) WritePdrTable(pdrEntry pdr, funcType uint8) error {
 		binary.BigEndian.PutUint32(te.Params[2].Value, pdrEntry.ctrID)
 
 		te.Params[3].Name = "far_id"
+		
 		te.Params[3].Value = make([]byte, 4)
 		binary.BigEndian.PutUint32(te.Params[3].Value, pdrEntry.farID)
 
@@ -456,30 +457,22 @@ func (c *P4rtClient) WriteInterfaceTable(intfEntry IntfTableEntry, funcType uint
 	te.Fields[0].Name = "ipv4_dst_prefix"
 	te.Fields[0].Value = intfEntry.IP
 	te.Fields[0].PrefixLen = uint32(intfEntry.PrefixLen)
+	te.Fields[0].Len = 32
 	te.ParamSize = 2
 	te.Params = make([]ActionParam, 2)
 	te.Params[0].Name = SrcIfaceStr
-	enumName := InterfaceTypeStr
-	val, err := c.getEnumVal(enumName, intfEntry.SrcIntf)
-	if err != nil {
-		log.Println("Could not find enum val ", err)
-		return err
-	}
-
-	te.Params[0].Value = val
 	te.Params[1].Name = "direction"
-	enumName = "Direction"
 
-	val, err = c.getEnumVal(enumName, intfEntry.Direction)
-	if err != nil {
-		log.Println("Could not find enum val ", err)
-		return nil
+	if intfEntry.SrcIntf == "ACCESS" {
+		te.Params[0].Value = []byte{0x01}
+		te.Params[1].Value = []byte{0x01}
+	} else if intfEntry.SrcIntf == "CORE" {
+		te.Params[0].Value = []byte{0x02}
+		te.Params[1].Value = []byte{0x02}
 	}
-
-	te.Params[1].Value = val
 
 	var prio int32
-
+	prio = 0
 	return c.InsertTableEntry(te, funcType, prio)
 }
 
@@ -843,32 +836,16 @@ func (c *P4rtClient) ReadInterfaceTable(intfEntry *IntfTableEntry) error {
 	te.FieldSize = 1
 	te.Fields = make([]MatchField, 1)
 	te.Fields[0].Name = "ipv4_dst_prefix"
-
+	te.Fields[0].Value = []byte{0xc6, 0x12, 0x00, 0x02}
 	te.ParamSize = 2
 	te.Params = make([]ActionParam, 2)
 	te.Params[0].Name = SrcIfaceStr
-	enumName := InterfaceTypeStr
-
-	val, err := c.getEnumVal(enumName, intfEntry.SrcIntf)
-	if err != nil {
-		log.Println("Could not find enum val ", err)
-		return err
-	}
-
-	te.Params[0].Value = val
+	te.Params[0].Value = []byte{0x01}
 	te.Params[1].Name = "direction"
-	enumName = "Direction"
-
-	val, err = c.getEnumVal(enumName, intfEntry.Direction)
-	if err != nil {
-		log.Println("Could not find enum val ", err)
-		return err
-	}
-
-	te.Params[1].Value = val
+	te.Params[1].Value = []byte{0x01}
 
 	var prio int32
-
+	prio = 0
 	readRes, err := c.ReadTableEntry(te, prio)
 	if err != nil {
 		log.Println("Read Interface table failed ", err)
@@ -1212,28 +1189,23 @@ func (c *P4rtClient) WriteRoutingTable(routeEntry RouteTableEntry, funcType uint
 		TableName:  "PreQosPipe.Routing.routes_v4",
 		ActionName: "PreQosPipe.Routing.route",
 	}
-
 	te.FieldSize = 1
 	te.Fields = make([]MatchField, 1)
 	te.Fields[0].Name = "dst_prefix"
 	te.Fields[0].Value = routeEntry.IP
 	te.Fields[0].PrefixLen = uint32(routeEntry.PrefixLen)
-
+	
 	te.ParamSize = 3
 	te.Params = make([]ActionParam, 3)
 
 	te.Params[0].Name = "src_mac"
 	te.Params[0].Value = routeEntry.SRC_MAC
-	te.Params[0].Len = 48
 
 	te.Params[1].Name = "dst_mac"
 	te.Params[1].Value = routeEntry.DST_MAC
-	te.Params[1].Len = 48
-	
 
 	te.Params[2].Value = routeEntry.Port
 	te.Params[2].Name = "egress_port"
-	te.Params[2].Len = 9
 
 
 	var prio int32
@@ -1251,7 +1223,7 @@ func (c *P4rtClient) WriteAclTable(AclEntry ACLTableEntry, funcType uint8) error
 
 	te.FieldSize = 10
 	te.Fields = make([]MatchField, 10)
-	te.Fields[0].Name = "inport"
+	te.Fields[0].Name = "inport"  //2 byte for tna, 1 byte for v1model
 	te.Fields[1].Name = "src_iface"
 	te.Fields[2].Name = "eth_src"
 	te.Fields[3].Name = "eth_dst"
@@ -1261,29 +1233,8 @@ func (c *P4rtClient) WriteAclTable(AclEntry ACLTableEntry, funcType uint8) error
 	te.Fields[7].Name = "ipv4_proto"
 	te.Fields[8].Name = "l4_sport"
 	te.Fields[9].Name = "l4_dport"
-	te.Fields[0].Len = 9
-	te.Fields[1].Len = 8
-	te.Fields[2].Len = 48 
-	te.Fields[3].Len = 48
-	te.Fields[4].Len = 16
-	te.Fields[5].Len = 32 
-	te.Fields[6].Len = 32 
-	te.Fields[7].Len = 8
-	te.Fields[8].Len = 16
-	te.Fields[9].Len = 16
 
-	te.Fields[0].Mask = make([]byte, 1)
-	te.Fields[1].Mask = make([]byte, 1)
-	te.Fields[2].Mask = make([]byte, 6)
-	te.Fields[3].Mask = make([]byte, 6)
-	te.Fields[4].Mask = make([]byte, 2)
-	te.Fields[5].Mask = make([]byte, 4)
-	te.Fields[6].Mask = make([]byte, 4)
-	te.Fields[7].Mask = make([]byte, 1)
-	te.Fields[8].Mask = make([]byte, 2)
-	te.Fields[9].Mask = make([]byte, 2)
-
-	te.Fields[0].Mask = []byte{0xff}
+	te.Fields[0].Mask = []byte{0x01, 0xff} //9bit mask for tna ingress_port, 8bit for v1model
 	te.Fields[1].Mask = []byte{0xff}
 	te.Fields[2].Mask = []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	te.Fields[3].Mask = []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
@@ -1294,7 +1245,7 @@ func (c *P4rtClient) WriteAclTable(AclEntry ACLTableEntry, funcType uint8) error
 	te.Fields[8].Mask = []byte{0xff, 0xff}
 	te.Fields[9].Mask = []byte{0xff, 0xff}
 
-	te.Fields[0].Value = AclEntry.inport
+	te.Fields[0].Value = AclEntry.inport 
 	te.Fields[1].Value = AclEntry.src_iface
 	te.Fields[2].Value = AclEntry.eth_src
 	te.Fields[3].Value = AclEntry.eth_dst
@@ -1307,11 +1258,8 @@ func (c *P4rtClient) WriteAclTable(AclEntry ACLTableEntry, funcType uint8) error
 
 	te.ParamSize = 1
 	te.Params = make([]ActionParam, 1)
-	te.Params[0].Name = "port"
+	te.Params[0].Name = "port"  //2 byte for tna, 1 byte for v1model
 	te.Params[0].Value = AclEntry.egress_port
-	te.Params[0].Len = 9
-	
-
 
 	var prio int32
 	prio = 1
@@ -1332,6 +1280,7 @@ func (c *P4rtClient) WriteStationTable(stationEntry StationTableEntry, funcType 
 	te.Fields[0].Value = stationEntry.DST_MAC
 	te.ParamSize = 0
 	var prio int32
+	prio = 0
 
 	return c.InsertTableEntry(te, funcType, prio)
 }
