@@ -1,6 +1,6 @@
 # p4-upf-epc
 
-sudo ./bazel-bin/stratum/hal/bin/bmv2/stratum_bmv2 --chassis_config_file=./stratum/hal/bin/bmv2/chassis_config.pb.txt --bmv2_log_level=debug
+
 
 # tofino
 
@@ -49,6 +49,13 @@ sudo ./docker_setup.sh
 ```
 
 ### Setup v1model upf-epc
+```
+sudo ./bazel-bin/stratum/hal/bin/bmv2/stratum_bmv2 --chassis_config_file=./stratum/hal/bin/bmv2/chassis_config.pb.txt --bmv2_log_level=debug
 
-run free5gc and UERANSIM
+sudo ./copy_bmv2.sh ./conf/p4/bin/bmv2.json ./conf/p4/bin/p4info.txt
+
+
+sudo ./docker_setup.sh
+```
+### run free5gc and UERANSIM
 
