@@ -37,6 +37,7 @@ type P4rtcInfo struct {
 	N_S1U_MAC   string `json:"n_s1u_mac"`
 	N_SGI_IP	string `json:"n_sgi_ip"`
 	N_SGI_MAC	string `json:"n_sgi_mac"`
+	Archi		string `json:"architecture"`
 }
 
 
@@ -73,7 +74,8 @@ type p4rtc struct {
 	n_s1u_ip    	 string 
 	n_s1u_mac   	 string 
 	n_sgi_ip		 string 
-	n_sgi_mac		 string 
+	n_sgi_mac		 string
+	archi 			 string 
 }
 
 func (p *p4rtc) summaryLatencyJitter(uc *upfCollector, ch chan<- prometheus.Metric) {
@@ -85,14 +87,15 @@ func (p *p4rtc) portStats(uc *upfCollector, ch chan<- prometheus.Metric) {
 func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error) {
 	log.Println("Set Switch Info")
 	log.Println("device id ", (*p4rtClient).DeviceID)
-
-	//v1model
-	//p4InfoPath := "/bin/p4info.txt"
-	//deviceConfigPath := "/bin/bmv2.json"
-
-	//tna
-	p4InfoPath := "/bin/up4.txt"
-	deviceConfigPath := "/bin/out.bin"
+	var p4InfoPath string 
+	var deviceConfigPath string 
+	if  p.archi == "v1model"{
+		p4InfoPath = "/bin/p4info.txt"
+		deviceConfigPath = "/bin/bmv2.json"
+	}else if p.archi == "tna"{
+		p4InfoPath = "/bin/up4.txt"
+		deviceConfigPath = "/bin/out.bin"
+	}
 
 	errin := p4rtClient.GetForwardingPipelineConfig()
 	if errin != nil {
@@ -194,11 +197,11 @@ func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error
 			egress_port  : []byte{0x00, 0x01},
 		}
 		log.Println("Insert ACL")
-		UlAclErr := p4rtClient.WriteAclTable(UlAclEntry ,1)
+		UlAclErr := p4rtClient.WriteAclTable(UlAclEntry , 1, p.archi )
 		if UlAclErr != nil {
 			log.Println("Write ACL table failed ", UlAclErr)
 		}
-		DlAclErr := p4rtClient.WriteAclTable(DlAclEntry ,1)
+		DlAclErr := p4rtClient.WriteAclTable(DlAclEntry , 1, p.archi)
 		if DlAclErr != nil {
 			log.Println("Write ACL table failed ", DlAclErr)
 		}
@@ -434,6 +437,7 @@ func (p *p4rtc) setUpfInfo(u *upf, conf *Conf) {
 	p.n_s1u_mac = conf.P4rtcIface.N_S1U_MAC
 	p.n_sgi_ip = conf.P4rtcIface.N_SGI_IP
 	p.n_sgi_mac = conf.P4rtcIface.N_SGI_MAC
+	p.archi = conf.P4rtcIface.Archi
 
 	if *p4RtcServerIP != "" {
 		p.p4rtcServer = *p4RtcServerIP

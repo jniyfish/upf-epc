@@ -1213,7 +1213,7 @@ func (c *P4rtClient) WriteRoutingTable(routeEntry RouteTableEntry, funcType uint
 	return c.InsertTableEntry(te, funcType, prio)
 }
  
-func (c *P4rtClient) WriteAclTable(AclEntry ACLTableEntry, funcType uint8) error {
+func (c *P4rtClient) WriteAclTable(AclEntry ACLTableEntry, funcType uint8, architecture string) error {
 	log.Println("WriteACLTable.")
 
 	te := AppTableEntry{
