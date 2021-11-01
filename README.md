@@ -19,6 +19,7 @@ run stratum
 ```
 cd ~/Desktop/stratum/stratum/hal/bin/barefoot/docker/
 export CHASSIS_CONFIG=/path/to/chassis_config.pb.txt
+export PLATFORM=barefoot-tofino-model
 ./start-stratum-container.sh PLATFORM=barefoot-tofino-model -bf_switchd_backgroung=false -enable_onlp=false
 ```
 
@@ -59,3 +60,24 @@ sudo ./docker_setup.sh
 ```
 ### run free5gc and UERANSIM
 
+
+### B09 iperf exp setup
+
+Open switch daemons 
+```=bash
+#Inpv4SW3
+./p4rt_switchd.sh -p skip_p4 --skip-p4
+```
+Setup port 
+```=bash
+bfshell -f setup-port.txt
+```
+Start Pfcpiface
+```=bash
+#140.113.194.239
+sudo ./docker_setup
+```
+Start free5GC
+```=bash
+#140.113.60.185
+```
