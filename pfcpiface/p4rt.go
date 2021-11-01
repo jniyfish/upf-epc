@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	setSWinfo = 0
+
 	p4RtcServerIP   = flag.String("p4RtcServerIP", "", "P4 Server ip")
 	p4RtcServerPort = flag.String("p4RtcServerPort", "", "P4 Server port")
 )
@@ -76,6 +76,7 @@ type p4rtc struct {
 	n_sgi_ip		 string 
 	n_sgi_mac		 string
 	archi 			 string 
+	setSWinfo 		 int
 }
 
 func (p *p4rtc) summaryLatencyJitter(uc *upfCollector, ch chan<- prometheus.Metric) {
@@ -89,13 +90,11 @@ func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error
 	log.Println("device id ", (*p4rtClient).DeviceID)
 	var p4InfoPath string 
 	var deviceConfigPath string 
-	if  p.archi == "v1model"{
-		p4InfoPath = "/bin/p4info.txt"
-		deviceConfigPath = "/bin/bmv2.json"
-	}else if p.archi == "tna"{
-		p4InfoPath = "/bin/up4.txt"
-		deviceConfigPath = "/bin/out.bin"
-	}
+	
+	
+	p4InfoPath = "/bin/up4.txt"
+	deviceConfigPath = "/bin/out.bin"
+	
 
 	errin := p4rtClient.GetForwardingPipelineConfig()
 	if errin != nil {
@@ -107,8 +106,8 @@ func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error
 	}
 //insert interface info start
 	
-	if setSWinfo == 0{
-		setSWinfo = 1
+	if p.setSWinfo == 0{
+		p.setSWinfo = 1
 		S1U_MAC, err := hex.DecodeString(p.s1u_mac)
 		if err != nil {
 			panic(err)
@@ -125,7 +124,7 @@ func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error
 		if err != nil {
 			panic(err)
 		}
-		log.Println("setSWinfo: ", setSWinfo)
+		log.Println("setSWinfo: ", p.setSWinfo)
 		S1UipByte := net.ParseIP(p.s1u_ip) //parseIP return size 16
 		N_S1UipByte := net.ParseIP(p.n_s1u_ip) //parseIP return size 16
 		N_SGIipByte := net.ParseIP(p.n_sgi_ip) //parseIP return size 16
@@ -171,7 +170,7 @@ func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error
 
 		
 		UlAclEntry := ACLTableEntry{
-			inport       : []byte{0x00, 0x01},
+			inport       : []byte{0x00, 0x84},
 			src_iface    : []byte{0x01},
 			eth_src      : N_S1U_MAC,
 			eth_dst      : S1U_MAC,
@@ -181,10 +180,10 @@ func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error
 			ipv4_proto   : []byte{0x01},
 			l4_sport     : []byte{0x08, 0x68},
 			l4_dport     : []byte{0x08, 0x68},
-			egress_port  : []byte{0x00, 0x02},
+			egress_port  : []byte{0x00, 0x85},
 		}
 		DlAclEntry := ACLTableEntry{
-			inport       : []byte{0x00, 0x02},
+			inport       : []byte{0x00, 0x85},
 			src_iface    : []byte{0x02},
 			eth_src      : S1U_MAC,
 			eth_dst      : N_S1U_MAC,
@@ -194,7 +193,7 @@ func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error
 			ipv4_proto   : []byte{0x01},
 			l4_sport     : []byte{0x00, 0x00},
 			l4_dport     : []byte{0x00, 0x00},
-			egress_port  : []byte{0x00, 0x01},
+			egress_port  : []byte{0x00, 0x84},
 		}
 		log.Println("Insert ACL")
 		UlAclErr := p4rtClient.WriteAclTable(UlAclEntry , 1, p.archi )
@@ -210,20 +209,20 @@ func (p *p4rtc) setSwitchInfo(p4rtClient *P4rtClient) (net.IP, net.IPMask, error
 			PrefixLen	:	32,
 			SRC_MAC		: SGI_MAC,
 			DST_MAC		: N_SGI_MAC,
-			Port        : []byte{0x00, 0x02},
+			Port        : []byte{0x00, 0x84},
 		}
 		DLrouteEntry := RouteTableEntry{
 			IP	:	N_S1UipByte,
 			PrefixLen	:	32,
 			SRC_MAC		: S1U_MAC,
 			DST_MAC		: N_S1U_MAC,
-			Port        : []byte{0x00, 0x01},
+			Port        : []byte{0x00, 0x85},
 		}
 		p4rtClient.WriteRoutingTable(ULrouteEntry ,1)
 		p4rtClient.WriteRoutingTable(DLrouteEntry ,1)
 		
-		setSWinfo = 2
-		log.Println("setSWinfo: ", setSWinfo)
+		p.setSWinfo = 2
+		log.Println("setSWinfo: ", p.setSWinfo)
 		//return nil, nil, errin
 	}
 	
@@ -438,6 +437,7 @@ func (p *p4rtc) setUpfInfo(u *upf, conf *Conf) {
 	p.n_sgi_ip = conf.P4rtcIface.N_SGI_IP
 	p.n_sgi_mac = conf.P4rtcIface.N_SGI_MAC
 	p.archi = conf.P4rtcIface.Archi
+	p.setSWinfo = 0
 
 	if *p4RtcServerIP != "" {
 		p.p4rtcServer = *p4RtcServerIP
@@ -455,7 +455,7 @@ func (p *p4rtc) setUpfInfo(u *upf, conf *Conf) {
 
 	p.host = p.p4rtcServer + ":" + p.p4rtcPort
 	log.Println("server name: ", p.host)
-	p.deviceID = 1
+	p.deviceID = 0
 	p.timeout = 30
 	p.p4client, errin = p.channelSetup()
 	u.accessIP = p.accessIP

@@ -347,6 +347,7 @@ func (pc *PFCPConn) handleSessionEstablishmentRequest(upf *upf, msg message.Mess
 
 	/* Read CreatePDRs and CreateFARs from payload */
 	localSEID := pc.mgr.NewPFCPSession(remoteSEID)
+	log.Println("localSEID: %v", localSEID)
 	if localSEID == 0 {
 		sendError(errors.New("unable to allocate new PFCP session"),
 			ie.CauseNoResourcesAvailable)
@@ -451,6 +452,7 @@ func (pc *PFCPConn) handleSessionModificationRequest(upf *upf, msg message.Messa
 	}
 
 	localSEID := smreq.SEID()
+	//localSEID := uint64(1)
 
 	session, ok := pc.mgr.sessions[localSEID]
 	if !ok {

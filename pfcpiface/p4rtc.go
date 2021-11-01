@@ -175,7 +175,7 @@ func (c *P4rtClient) SetMastership(electionID p4.Uint128) (err error) {
 	mastershipReq := &p4.StreamMessageRequest{
 		Update: &p4.StreamMessageRequest_Arbitration{
 			Arbitration: &p4.MasterArbitrationUpdate{
-				DeviceId:   1,
+				DeviceId:   0,
 				ElectionId: &electionID,
 			},
 		},
