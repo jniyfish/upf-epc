@@ -1,8 +1,9 @@
 {
     "": "Vdev or sim support. Enable `\"mode\": \"af_xdp\"` to enable AF_XDP mode, or `\"mode\": \"af_packet\"` to enable AF_PACKET mode, or `\"mode\": \"sim\"` to generate synthetic traffic from BESS's Source module",
     "": "mode: af_xdp",
-    "mode": "af_packet",
+    "": "mode: af_packet",
     "": "mode: sim",
+    "mode": "af_packet",
 
     "": "max UE sessions",
     "max_sessions": 50000,
@@ -10,7 +11,6 @@
     "": "Set the log level to one of \"panic\", \"fatal\", \"error\", \"warning\", \"info\", \"debug\", \"trace\"",
     "log_level": "info",
 
-    "": "Use the sim block to enable simulation using either Source module or via il_trafficgen",
 
     "": "max IP frag table entries (for IPv4 reassembly). Update the line below to `\"max_ip_defrag_flows\": 1000` to enable",
     "": "max_ip_defrag_flows: 1000",
@@ -38,7 +38,7 @@
     "": "UE IP Natting. Update the line below to `\"ip_masquerade\": \"<ip> [or <ip>]\"` to enable",
     "core": {
         "ifname": "ens803f3",
-        "ip_masquerade": "140.113.194.239"
+        "ip_masquerade": "140.113.194.244"
     },
 
     "": "Number of worker threads. Default: 1",
@@ -76,17 +76,6 @@
             "priority": 5
         }
     ],
-
-    "": "Optional slice-wide meter rate limits",
-    "slice_rate_limit_config": {
-        "": "uplink policer",
-        "n6_bps": 500000000,
-        "n6_burst_bytes": 3000,
-        "": "downlink policer",
-        "n3_bps": 500000000,
-        "n3_burst_bytes": 3000
-    },
-
     "": "Control plane controller settings",
     "cpiface": {
         "enable_ue_ip_alloc": false,
@@ -99,21 +88,9 @@
 
     "": "p4rtc interface settings",
     "p4rtciface": {
-    "access_ip": "140.113.194.239/27",
-    "p4rtc_server": "127.0.0.1",
-    "p4rtc_port": "50051",
-    "ue_ip_pool": "60.60.0.0/24",
-    
-    "s1u_ip": "10.100.100.10",
-	"s1u_mac": "04d9f57d9c5e",
-	"sgi_ip": "10.100.100.10",
-	"sgi_mac": "04d9f57d9c5f",
-	"n_s1u_ip": "10.100.100.1",
-	"n_s1u_mac": "b22de5e86291",
-	"n_sgi_ip": "10.0.100.1",
-	"n_sgi_mac": "3cfdfebaf221", 
-    "architecture": "tna"
-    },
-    "node_ip": "172.17.0.5"
-    
+    "access_ip": "172.17.0.1/32",
+    "p4rtc_server": "onos",
+    "p4rtc_port": "51001",
+    "ue_ip_pool": "60.60.0.0/24"
+    }
 }

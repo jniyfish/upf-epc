@@ -264,7 +264,8 @@ qerLookup:qerStatusDropGate -> qerStatusDrop::Sink()
 qerLookup:qerUnmeteredGate -> farLookup
 pdrLookup:pdrFailGate -> pdrLookupFail::Sink()
 farLookup:farFailGate -> farLookupFail::Sink()
-qerLookup:qerFailGate -> qerLookupFail::Sink()
+#qerLookup:qerFailGate -> qerLookupFail::Sink()
+qerLookup:qerFailGate -> farLookup
 executeFAR:farDropAction -> farDrop::Sink()
 executeFAR:farBufferAction -> farBuffer::Sink()
 gtpuEncap:0 -> gtpuEncapFail::Sink()

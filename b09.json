@@ -54,7 +54,7 @@
     "": "enable_notify_bess: false",
 
     "": "Whether to enable P4Runtime feature",
-    "enable_p4rt": false,
+    "enable_p4rt": true,
     "" : "conn_timeout: 1000",
     "" : "read_timeout: 25",
     "" : "notify_sockaddr: /tmp/notifycp",
@@ -113,7 +113,5 @@
 	"n_sgi_ip": "10.0.100.1",
 	"n_sgi_mac": "3cfdfebaf221", 
     "architecture": "tna"
-    },
-    "node_ip": "172.17.0.5"
-    
+    }
 }

@@ -54,7 +54,7 @@
     "": "enable_notify_bess: false",
 
     "": "Whether to enable P4Runtime feature",
-    "enable_p4rt": false,
+    "enable_p4rt": true,
     "" : "conn_timeout: 1000",
     "" : "read_timeout: 25",
     "" : "notify_sockaddr: /tmp/notifycp",
@@ -99,21 +99,19 @@
 
     "": "p4rtc interface settings",
     "p4rtciface": {
-    "access_ip": "140.113.194.239/27",
-    "p4rtc_server": "127.0.0.1",
-    "p4rtc_port": "50051",
-    "ue_ip_pool": "60.60.0.0/24",
-    
-    "s1u_ip": "10.100.100.10",
-	"s1u_mac": "04d9f57d9c5e",
-	"sgi_ip": "10.100.100.10",
-	"sgi_mac": "04d9f57d9c5f",
-	"n_s1u_ip": "10.100.100.1",
-	"n_s1u_mac": "b22de5e86291",
-	"n_sgi_ip": "10.0.100.1",
-	"n_sgi_mac": "3cfdfebaf221", 
-    "architecture": "tna"
-    },
-    "node_ip": "172.17.0.5"
-    
+        "access_ip": "140.113.194.239/27",
+        "p4rtc_server": "172.17.0.1",
+        "p4rtc_port": "9559",
+        "ue_ip_pool": "60.60.0.0/24",
+        
+        "s1u_ip": "198.18.0.1",
+        "s1u_mac": "00154d13635c",
+        "sgi_ip": "198.19.0.1",
+        "sgi_mac": "00154d13635d",
+        "n_s1u_ip": "198.18.0.2",
+        "n_s1u_mac": "880066995b47",
+        "n_sgi_ip": "198.19.0.2",
+        "n_sgi_mac": "7cd30a9083c1", 
+        "architecture": "tna"
+    }
 }
