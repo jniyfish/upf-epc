@@ -18,6 +18,7 @@ import (
 
 var (
 	configPath = flag.String("config", "upf.json", "path to upf config")
+	configPath2 = flag.String("config2", "stratum.json", "path to upf config")
 	httpAddr   = flag.String("http", "0.0.0.0:8080", "http IP/port combo")
 	simulate   = flag.String("simulate", "", "create|delete simulated sessions")
 	pfcpsim    = flag.Bool("pfcpsim", false, "simulate PFCP")
@@ -42,6 +43,7 @@ type Conf struct {
 	LogLevel          string           `json:"log_level"`
 	QciQosConfig      []QciQosConfig   `json:"qci_qos_config"`
 	SliceMeterConfig  SliceMeterConfig `json:"slice_rate_limit_config"`
+	NodeIP			  string		   `json:"node_ip"`
 }
 
 // QciQosConfig : Qos configured attributes.
@@ -153,11 +155,13 @@ func main() {
 
 	var (
 		conf Conf
+		conf2 Conf
 		intf fastPath
 	)
 
 	// read and parse json startup file
 	ParseJSON(configPath, &conf)
+	ParseJSON(configPath2, &conf2)
 
 	// Set up logger
 	log.SetReportCaller(true)
@@ -185,7 +189,7 @@ func main() {
 		fqdnh = fqdn.Get()
 	}
 
-	upf := &upf{
+	upf1 := &upf{
 		accessIface:     conf.AccessIface.IfName,
 		coreIface:       conf.CoreIface.IfName,
 		fqdnHost:        fqdnh,
@@ -199,41 +203,52 @@ func main() {
 		readTimeout:     time.Duration(conf.ReadTimeout) * time.Second,
 	}
 
-	upf.setUpfInfo(&conf)
+	upf1.setUpfInfo(&conf)
 
-	if *pfcpsim {
-		pfcpSim()
-		return
+	fqdnh = conf2.CPIface.FQDNHost
+	if fqdnh == "" {
+		fqdnh = fqdn.Get()
+	}
+	if conf2.EnableP4rt {
+		intf = &p4rtc{}
+	} else {
+		intf = &bess{}
+	}
+	upf2 := &upf{
+		accessIface:     conf2.AccessIface.IfName,
+		coreIface:       conf2.CoreIface.IfName,
+		fqdnHost:        fqdnh,
+		maxSessions:     conf2.MaxSessions,
+		intf:            intf,
+		enableUeIPAlloc: conf2.CPIface.EnableUeIPAlloc,
+		recoveryTime:    time.Now(),
+		dnn:             conf2.CPIface.Dnn,
+		enableEndMarker: conf2.EnableEndMarker,
+		connTimeout:     time.Duration(conf.ConnTimeout) * time.Millisecond,
+		readTimeout:     time.Duration(conf.ReadTimeout) * time.Second,
 	}
 
-	if *simulate != "" {
-		if *simulate != "create" && *simulate != "delete" {
-			log.Fatalln("Invalid simulate method", simulate)
-		}
+	upf2.setUpfInfo(&conf2)
 
-		log.Println(*simulate, "sessions:", conf.MaxSessions)
-		upf.sim(*simulate)
 
-		return
-	}
-
-	log.Println("N4 local IP: ", upf.n4SrcIP.String())
-	log.Println("Access IP: ", upf.accessIP.String())
-	log.Println("Core IP: ", upf.coreIP.String())
-
-	if conf.CPIface.PromPort != "" {
-		*httpAddr = string("0.0.0.0:") + conf.CPIface.PromPort
-	}
-
-	log.Println("httpAddr: ", httpAddr)
+	//var upfArr []*upf;
+	//upfArr = append(upfArr, upf1)
+	//upfArr = append(upfArr, upf2)
+	//go multiPfcpifaceMainLoop(upfArr, conf.CPIface.DestIP,)
 
 	go pfcpifaceMainLoop(
-		upf, upf.accessIP.String(),
-		upf.coreIP.String(), upf.n4SrcIP.String(),
+		upf1, upf1.accessIP.String(),
+		upf1.coreIP.String(), upf1.n4SrcIP.String(),
 		conf.CPIface.DestIP,
 	)
 
-	setupProm(upf)
+	go pfcpifaceMainLoop(
+		upf2, upf2.accessIP.String(),
+		upf2.coreIP.String(), upf2.n4SrcIP.String(),
+		conf.CPIface.DestIP,
+	)
+
+	setupProm(upf1)
 	log.Fatal(http.ListenAndServe(*httpAddr, nil))
-	upf.exit()
+	upf1.exit()
 }

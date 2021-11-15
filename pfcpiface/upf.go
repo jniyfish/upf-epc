@@ -82,8 +82,10 @@ func (u *upf) sim(method string) {
 
 func (u *upf) setUpfInfo(conf *Conf) {
 	u.reportNotifyChan = make(chan uint64, 1024)
-	u.n4SrcIP = net.ParseIP(net.IPv4zero.String())
-	u.nodeIP = net.ParseIP(net.IPv4zero.String())
+//#u.n4SrcIP = net.ParseIP(net.IPv4zero.String())
+	u.n4SrcIP = net.ParseIP(conf.NodeIP)
+//	u.nodeIP = net.ParseIP(net.IPv4zero.String())
+	u.nodeIP = net.ParseIP(conf.NodeIP)
 
 	if conf.CPIface.SrcIP == "" {
 		if conf.CPIface.DestIP != "" {
